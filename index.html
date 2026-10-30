@@ -1034,8 +1034,8 @@ let rq=0;function schedule(){if(rq)return;rq=requestAnimationFrame(()=>{rq=0;ren
 const SUPA={url:'https://zflqievgszrkcbtzwcch.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbHFpZXZnc3pya2NidHp3Y2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyOTUyMjQsImV4cCI6MjEwODg3MTIyNH0.oK8Kr5ym-qvrO-CCebDz4nHMELDFsEhNy10pRSLR7u0'}; // preenchido na publicação do GitHub
 let supa=null,supaUser=null,supaPerfil=null;
 function loadSupaLib(){return new Promise((res,rej)=>{if(window.supabase&&window.supabase.createClient)return res(window.supabase);const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';sc.onload=()=>res(window.supabase);sc.onerror=rej;document.head.appendChild(sc)})}
-const SUPA_DOM='usuarios.centralfer.app';
-const userEmail=u=>String(u||'').trim().toLowerCase().replace(/\s+/g,'.')+'@'+SUPA_DOM;
+// cada usuário vira um endereço interno na caixa do admin (o Supabase exige e-mail com domínio válido; nenhum e-mail é enviado)
+const userEmail=u=>'mayara.ngcarvalho+fer-'+String(u||'').trim().toLowerCase().replace(/[^a-z0-9._-]+/g,'.')+'@gmail.com';
 function supaLoginUI(){
  let ov=document.getElementById('sb-login');
  if(!ov){ov=document.createElement('div');ov.id='sb-login';ov.innerHTML=`<div class="sb-card">
