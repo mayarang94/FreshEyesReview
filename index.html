@@ -772,6 +772,18 @@ td:has(>.q-claro){min-width:220px;white-space:normal}.sub.q-claro{white-space:no
 .xm .xb-q{display:block;color:#C9C6E3;font-size:12.5px;padding-left:10px}.xm .xb-q b{color:#fff}
 .xm .rk-entrevista,.xm .rk-cliente{background:rgba(255,115,117,.18);color:#FF9A9C}.xm .rk-contrato{background:rgba(255,220,55,.16);color:var(--yellow)}
 body.op [data-nav="parametros"],body.op [data-a="dr-del"],body.op [data-a="delAcao"],body.op .navgrp:has(> [data-nav="parametros"]){display:none!important}
+#sb-login{position:fixed;inset:0;z-index:100;background:var(--navy);display:grid;place-items:center;padding:16px}
+#sb-login[hidden]{display:none}
+.sb-card{background:var(--surface);width:min(380px,100%);padding:28px 28px 22px;display:flex;flex-direction:column;gap:8px;clip-path:polygon(0 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%)}
+.sb-brand{display:flex;align-items:center;gap:12px;margin-bottom:14px}.sb-brand .mark{background:var(--navy)}
+.sb-brand b{font-family:var(--f-display);font-size:18px;display:block}.sb-brand small{color:var(--ink-3);font-size:12px;font-weight:600}
+.sb-card label{font-size:12.5px;font-weight:700;color:var(--ink-2);margin-top:4px}
+.sb-card .btn.pri{justify-content:center;margin-top:6px;padding:10px}.sb-card .btn.ghost{justify-content:center}
+.sb-msg{min-height:18px;margin:2px 0 0;font-size:12.5px;color:var(--crit);font-weight:600}
+.sb-foot{margin:6px 0 0;font-size:12px;color:var(--ink-3);text-align:center}
+.sb-who{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11.5px;color:#C9C6E3}
+.sb-who .btn{color:#C9C6E3;padding:3px 8px}
+.sb-card form,#sb-wait{display:flex;flex-direction:column;gap:8px}.sb-card form[hidden],#sb-wait[hidden]{display:none}.sb-wait{margin:0;font-size:13.5px;line-height:1.5}
 </style>
 
 <div class="app" id="app">
@@ -1018,8 +1030,99 @@ function setSync(){const dot=$('#sync-dot'),tx=$('#sync-txt');
  const m={connecting:['','Conectando à base…'],ok:['ok',readOnly?'Base compartilhada · somente leitura':'Base compartilhada · ao vivo'],off:['crit','Base indisponível nesta visualização']};
  const [c,t]=m[dbState]||m.connecting;dot.className='dot '+c;tx.textContent=t}
 let rq=0;function schedule(){if(rq)return;rq=requestAnimationFrame(()=>{rq=0;render()})}
+// ===== Modo site próprio (Supabase) — só liga fora do Claude e com SUPA preenchido =====
+const SUPA={url:'https://zflqievgszrkcbtzwcch.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbHFpZXZnc3pya2NidHp3Y2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyOTUyMjQsImV4cCI6MjEwODg3MTIyNH0.oK8Kr5ym-qvrO-CCebDz4nHMELDFsEhNy10pRSLR7u0'}; // preenchido na publicação do GitHub
+let supa=null,supaUser=null,supaPerfil=null;
+function loadSupaLib(){return new Promise((res,rej)=>{if(window.supabase&&window.supabase.createClient)return res(window.supabase);const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';sc.onload=()=>res(window.supabase);sc.onerror=rej;document.head.appendChild(sc)})}
+const SUPA_DOM='usuarios.centralfer.app';
+const userEmail=u=>String(u||'').trim().toLowerCase().replace(/\s+/g,'.')+'@'+SUPA_DOM;
+function supaLoginUI(){
+ let ov=document.getElementById('sb-login');
+ if(!ov){ov=document.createElement('div');ov.id='sb-login';ov.innerHTML=`<div class="sb-card">
+  <div class="sb-brand"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><polygon points="2,2 8.6,2 22,22 15.4,22" fill="#00EB5E"/><polygon points="15.4,2 22,2 8.6,22 2,22" fill="#00EB5E"/></svg></div><div><b>Central do FER</b><small>Fresh Eyes Review · Client Retention</small></div></div>
+  <form id="sb-f-in" autocomplete="on">
+   <label for="sb-user">Usuário</label><input class="inp" id="sb-user" autocomplete="username" required autocapitalize="none">
+   <label for="sb-pass">Senha</label><input class="inp" id="sb-pass" type="password" autocomplete="current-password" required>
+   <p class="sb-msg" id="sb-msg" role="alert"></p>
+   <button class="btn pri" type="submit" id="sb-go">Entrar</button>
+   <button class="btn ghost" type="button" id="sb-to-new">Primeiro acesso? Crie sua senha</button>
+  </form>
+  <form id="sb-f-new" hidden autocomplete="off">
+   <label for="sb-nuser">Usuário</label><input class="inp" id="sb-nuser" required autocapitalize="none" placeholder="ex.: ana.martins">
+   <label for="sb-nnome">Seu nome</label><input class="inp" id="sb-nnome" required>
+   <label for="sb-npass">Senha (mínimo 8 caracteres)</label><input class="inp" id="sb-npass" type="password" autocomplete="new-password" required minlength="8">
+   <label for="sb-npass2">Repita a senha</label><input class="inp" id="sb-npass2" type="password" autocomplete="new-password" required minlength="8">
+   <p class="sb-msg" id="sb-nmsg" role="alert"></p>
+   <button class="btn pri" type="submit" id="sb-ngo">Criar acesso</button>
+   <button class="btn ghost" type="button" id="sb-to-in">Já tenho senha</button>
+  </form>
+  <div id="sb-wait" hidden><p class="sb-wait">Seu acesso foi criado e está <b>aguardando liberação</b> do admin da Central. Assim que for liberado, é só entrar com seu usuário e senha.</p><button class="btn ghost" type="button" id="sb-out2">Sair</button></div>
+ </div>`;document.body.appendChild(ov)}
+ ov.hidden=false;return ov}
+async function supaPerfilLoad(){const {data,error}=await supa.from('perfis').select('papel,nome,usuario').eq('user_id',supaUser.id).maybeSingle();supaPerfil=error||!data||!['admin','operacional'].includes(data.papel)?null:data;return data}
+function supaShowWait(ov){ov.hidden=false;ov.querySelector('#sb-f-in').hidden=true;ov.querySelector('#sb-f-new').hidden=true;ov.querySelector('#sb-wait').hidden=false}
+function supaAuth(){return new Promise(async res=>{
+ const ov=supaLoginUI();const fi=ov.querySelector('#sb-f-in'),fn=ov.querySelector('#sb-f-new');
+ ov.querySelector('#sb-out2').addEventListener('click',async()=>{await supa.auth.signOut();location.reload()});
+ const done=async user=>{supaUser=user;const raw=await supaPerfilLoad();if(!supaPerfil){supaShowWait(ov);return}ov.hidden=true;res()};
+ const {data:{session}}=await supa.auth.getSession();
+ if(session){await done(session.user);return}
+ setTimeout(()=>fi.querySelector('#sb-user').focus(),30);
+ ov.querySelector('#sb-to-new').addEventListener('click',()=>{fi.hidden=true;fn.hidden=false;fn.querySelector('#sb-nuser').value=fi.querySelector('#sb-user').value;fn.querySelector('#sb-nuser').focus()});
+ ov.querySelector('#sb-to-in').addEventListener('click',()=>{fn.hidden=true;fi.hidden=false});
+ fi.addEventListener('submit',async ev=>{ev.preventDefault();const b=fi.querySelector('#sb-go'),m=fi.querySelector('#sb-msg');b.disabled=true;b.textContent='Entrando…';m.textContent='';
+  const {data,error}=await supa.auth.signInWithPassword({email:userEmail(fi.querySelector('#sb-user').value),password:fi.querySelector('#sb-pass').value});
+  b.disabled=false;b.textContent='Entrar';
+  if(error){m.textContent=/invalid/i.test(error.message)?'Usuário ou senha incorretos.':'Não foi possível entrar agora. Tente de novo.';return}
+  await done(data.user)});
+ fn.addEventListener('submit',async ev=>{ev.preventDefault();const m=fn.querySelector('#sb-nmsg');const u=fn.querySelector('#sb-nuser').value.trim(),p1=fn.querySelector('#sb-npass').value,p2=fn.querySelector('#sb-npass2').value;
+  if(!/^[a-zA-Z0-9._-]{3,40}$/.test(u.replace(/\s+/g,'.'))){m.textContent='Use só letras, números, ponto ou traço no usuário.';return}
+  if(p1!==p2){m.textContent='As senhas não são iguais.';return}
+  const b=fn.querySelector('#sb-ngo');b.disabled=true;b.textContent='Criando…';
+  const {data,error}=await supa.auth.signUp({email:userEmail(u),password:p1,options:{data:{nome:fn.querySelector('#sb-nnome').value.trim(),usuario:u.toLowerCase()}}});
+  b.disabled=false;b.textContent='Criar acesso';
+  if(error){m.textContent=/registered|exists/i.test(error.message)?'Esse usuário já existe. Volte e entre com sua senha.':/password/i.test(error.message)?'Senha fraca: use pelo menos 8 caracteres.':'Não foi possível criar agora. Tente de novo.';return}
+  if(data.session){await done(data.user)}else{supaShowWait(ov)}});
+})}
+async function supaAcessos(){const el=document.getElementById('sb-acessos');if(!el||!supa)return;
+ const {data,error}=await supa.from('perfis').select('user_id,nome,usuario,papel').order('papel').order('nome');
+ if(error){el.innerHTML='<p class="muted">Não foi possível carregar os acessos.</p>';return}
+ el.innerHTML=`<div class="tw"><table class="t"><thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th></tr></thead><tbody>${data.map(r=>`<tr><td>${esc(r.nome||'–')}</td><td>${esc(r.usuario||'')}</td><td><select class="inp" data-sbuid="${esc(r.user_id)}" ${r.user_id===supaUser.id?'disabled':''} style="width:auto">${[['pendente','Aguardando liberação'],['operacional','Operacional'],['admin','Admin'],['bloqueado','Sem acesso']].map(([v,l])=>`<option value="${v}" ${r.papel===v?'selected':''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`;
+ el.querySelectorAll('[data-sbuid]').forEach(sel=>sel.addEventListener('change',async()=>{const {error}=await supa.from('perfis').update({papel:sel.value}).eq('user_id',sel.dataset.sbuid);toast(error?'Não foi possível alterar o perfil.':'Perfil atualizado.',error?'crit':'')}))}
+function supaDb(){
+ const err=e=>{const x=new Error(e&&e.message||'erro');x.code=e&&/row-level security|permission/i.test(e.message||'')?'invalid_argument':'unavailable';return x};
+ const snapDocs=rows=>({docs:rows.map(r=>({id:r.id,exists:true,data:()=>r.data}))});
+ const docRef=(coll,id)=>({
+  async set(body){const {error}=await supa.from('docs').upsert({coll,id,data:body,updated_by:supaUser.id,updated_at:new Date().toISOString()});if(error)throw err(error)},
+  async update(part){const {data:cur}=await supa.from('docs').select('data').eq('coll',coll).eq('id',id).maybeSingle();return this.set({...(cur&&cur.data||{}),...part})},
+  async delete(){const {error,count}=await supa.from('docs').delete({count:'exact'}).eq('coll',coll).eq('id',id);if(error)throw err(error);if(count===0)throw err({message:'permission'})},
+  async get(){const {data}=await supa.from('docs').select('data').eq('coll',coll).eq('id',id).maybeSingle();return {id,exists:!!data,data:()=>data?data.data:undefined}},
+  onSnapshot(next,onErr){let alive=true;const load=async()=>{const {data,error}=await supa.from('docs').select('data').eq('coll',coll).eq('id',id).maybeSingle();if(!alive)return;if(error){onErr&&onErr(err(error));return}next({id,exists:!!data,data:()=>data?data.data:undefined})};
+   load();const ch=supa.channel('d-'+coll+'-'+id).on('postgres_changes',{event:'*',schema:'public',table:'docs',filter:'coll=eq.'+coll},p=>{const r=p.new&&p.new.id?p.new:p.old;if(r&&r.id===id)load()}).subscribe();
+   return ()=>{alive=false;supa.removeChannel(ch)}}});
+ return {
+  collection:coll=>({doc:id=>docRef(coll,id),
+   onSnapshot(next,onErr){let alive=true;const M=new Map();const emit=()=>next(snapDocs([...M.values()]));
+    (async()=>{const {data,error}=await supa.from('docs').select('id,data').eq('coll',coll).limit(5000);if(!alive)return;if(error){onErr&&onErr(err(error));return}data.forEach(r=>M.set(r.id,r));emit()})();
+    const ch=supa.channel('c-'+coll).on('postgres_changes',{event:'*',schema:'public',table:'docs',filter:'coll=eq.'+coll},p=>{if(p.eventType==='DELETE'){M.delete(p.old.id)}else{M.set(p.new.id,{id:p.new.id,data:p.new.data})}emit()}).subscribe();
+    return ()=>{alive=false;supa.removeChannel(ch)}}}),
+  doc:path=>{const [c,i]=path.split('/');return docRef(c,i)}};
+}
+function supaDownloads(){return {async save({filename,data}){const blob=data instanceof Blob?data:new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}}}
+async function supaShim(){
+ const lib=await loadSupaLib();supa=lib.createClient(SUPA.url,SUPA.key,{auth:{persistSession:true}});
+ await supaAuth();
+ const adm=!!(supaPerfil&&supaPerfil.papel==='admin'),pode=!!supaPerfil;
+ const user={isOwner:async()=>adm,canEdit:async()=>adm,can:async n=>n==='data.write'?pode:null,id:async()=>supaUser.id,me:async()=>({id:supaUser.id,name:(supaPerfil&&supaPerfil.nome)||supaUser.email,email:supaUser.email})};
+ const caps={db:supaDb(),user,downloads:supaDownloads(),sample:null};
+ window.claude={use:async n=>caps[n]??null};
+ // rodapé: quem está logado + sair
+ const rf=document.querySelector('.rail-foot');if(rf&&!document.getElementById('sb-out')){const d=document.createElement('div');d.className='sb-who';d.innerHTML=`<span>${esc((supaPerfil&&(supaPerfil.nome||supaPerfil.usuario))||'')} · ${pode?(adm?'admin':'operacional'):'sem perfil'}</span><button class="btn sm ghost" id="sb-out" type="button">Sair</button>`;rf.appendChild(d);d.querySelector('#sb-out').addEventListener('click',async()=>{await supa.auth.signOut();location.reload()})}
+ if(!pode)toast('Seu usuário ainda não tem perfil. Peça ao admin para liberar o acesso.','crit');
+}
 async function boot(){
  route();setSync();
+ if((!window.claude||!claude.use)&&SUPA.url){try{await supaShim()}catch(e){console.error(e);dbState='off';setSync();render();return}}
  if(!window.claude||!claude.use){dbState='off';setSync();render();return}
  claude.use('user').then(async u=>{userCap=u;if(u){try{const ow=await u.isOwner(),ed=await u.canEdit();isAdm=!!(ow||ed);document.body.classList.toggle('op',!isAdm);if(!isAdm&&view==='parametros')location.hash='hoje';else render()}catch{};try{myId=await u.id()}catch{};try{const w=await u.can('data.write');if(w===false){readOnly=true;setSync();schedule()}}catch{}}});
  claude.use('sample').then(s=>{sample=s;schedule()});
@@ -1058,6 +1161,7 @@ function render(){
  const loading=dbState==='connecting'||(dbState==='ok'&&!S.ready.clientes);
  v.innerHTML=(dbState==='off'?`<div class="banner">A base compartilhada não está disponível aqui. Abra a página pelo claude.ai, conectada à sua conta, para ver e editar os dados.</div>`:'')+
   ({hoje:vHoje,regua:vRegua,historico:vHist,relatorios:vRel,cronograma:vCrono,entrevistas:vEnt,plano:vPlano,executivo:vExec,parametros:vParams}[view])(loading);
+ if(view==='parametros'&&supa)setTimeout(supaAcessos,0);
  const tasks=buildTasks();const n=tasks.filter(t=>t.due&&diff(t.due)<=0).length;const c=$('#cnt-hoje');c.hidden=!n;c.textContent=n;
  if(DR&&DR.kind==='quick')refreshQuick();
  if(aid){const el=document.getElementById(aid);if(el){el.focus();if(sel&&el.setSelectionRange)try{el.setSelectionRange(...sel)}catch{}}}
@@ -1221,8 +1325,7 @@ function vCrono(loading){
    {t:'KAM acionado',n:n2.length+n3.length+n4.length+n5.length,who:'Client Retention',nao:chip('a acionar',n1.length,'1. A acionar KAM')+chip('em stand by',all.filter(k=>k.etapa==='Stand by').length,'Stand by')+chip('adiaram',all.filter(k=>k.etapa==='Adiou').length,'Adiou')},
    {t:'Convite ao cliente',n:n3.length+n4.length+n5.length,who:'KAM',nao:chip('aguardando o KAM',n2.length,'2. Aguardando KAM')},
    {t:'Entrevista agendada',n:n4.length+n5.length,who:'Cliente',nao:chip('aguardando o cliente',n3.length,'3. Aguardando cliente')},
-   {t:'Entrevista realizada',n:n5.length,who:'Client Retention',nao:chip('agendadas, ainda vão acontecer',n4.length,'4. Agendada')},
-   {t:'Devolutiva feita',n:devol.length,who:'Client Retention',nao:n5.length-devol.length>0?`<span class="fchip st">${n5.length-devol.length} na pós-entrevista ou com as áreas</span>`:''}];
+   {t:'Entrevista realizada',n:n5.length,who:'Client Retention',nao:chip('agendadas, ainda vão acontecer',n4.length,'4. Agendada')}];
   R.forEach((r,i)=>{if(r.bv==null){const ks=i===2?[...n2,...n3,...n4,...n5]:i===3?[...n3,...n4,...n5]:i===4?[...n4,...n5]:i===5?n5:all.filter(k=>devol.some(e=>+e.cd===+k.cd));r.bv=bvs(ks)}});
   const base=eleg.length||1;
   const cols=['var(--q-zona)','var(--navy)','var(--blue)','var(--blue)','var(--yellow)','var(--green)','var(--green)'];
@@ -1450,6 +1553,7 @@ function vParams(loading){
  <section class="card"><div class="card-h"><div><h2>Régua pós-FER por quadrante</h2><p>Referência do guide global, usada para o prazo “iniciar plano até”.</p></div></div><div class="tw"><table class="t"><thead><tr><th>Quadrante</th><th>Classificação</th><th>O que significa</th><th>Ação recomendada</th><th class="n">Prazo</th></tr></thead><tbody>
  ${Object.entries(QUADS).map(([q,Q])=>`<tr><td>${quadPill(q)}</td><td class="strong">${Q.cls}</td><td class="sub wrap" style="color:var(--ink-2)">${Q.sig}</td><td class="sub wrap" style="color:var(--ink-2)">${Q.acao}</td><td class="n strong">${Q.prazo}</td></tr>`).join('')}</tbody></table></div></section>
  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-a="saveParams">Salvar parâmetros</button><button class="btn" data-a="export">${ICON.dl}Exportar a base em Excel</button></div>`;
+ if(supa&&isAdm)h+=`<section class="card" style="margin-top:16px"><div class="card-h"><div><h2>Acessos</h2><p>Quem criou acesso no site. Libere como Operacional ou Admin; “Sem acesso” bloqueia.</p></div></div><div class="card-b" id="sb-acessos"><p class="muted">Carregando…</p></div></section>`;
  return h;
 }
 
@@ -1458,7 +1562,7 @@ let DR=null;
 function openDrawer(html){const d=$('#drawer');d.classList.toggle('sm',!!(DR&&DR.kind==='quick'));d.classList.toggle('xl',!!(DR&&DR.kind==='deck'));d.innerHTML=html;d.classList.add('on');d.setAttribute('aria-hidden','false');$('#scrim').classList.add('on');setTimeout(()=>{const f=d.querySelector('.dr-b input,.dr-b select,.dr-b textarea');f&&f.focus({preventScroll:true})},230)}
 function closeDrawer(){DR=null;$('#drawer').classList.remove('sm','xl');const d=$('#drawer');d.classList.remove('on');d.setAttribute('aria-hidden','true');$('#scrim').classList.remove('on')}
 const F={
- text:(f,l,v,o={})=>`<div class="f ${o.full?'full':''}"><label for="d-${f}">${l}</label><input class="inp" id="d-${f}" data-f="${f}" value="${esc(v??'')}" ${o.ph?`placeholder="${esc(o.ph)}"`:''}>${o.hint?`<span class="hint">${o.hint}</span>`:''}</div>`,
+ text:(f,l,v,o={})=>`<div class="f ${o.full?'full':''}"><label for="d-${f}">${l}</label><input class="inp" id="d-${f}" data-f="${f}" value="${esc(v??'')}" ${o.ph?`placeholder="${esc(o.ph)}"`:''} ${o.list?`list="dl-${f}" autocomplete="off"`:''}>${o.list?`<datalist id="dl-${f}">${o.list.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`:''}${o.hint?`<span class="hint">${o.hint}</span>`:''}</div>`,
  num:(f,l,v,o={})=>`<div class="f ${o.full?'full':''}"><label for="d-${f}">${l}</label><input class="inp" type="number" step="any" id="d-${f}" data-f="${f}" data-t="num" value="${esc(v??'')}" ${o.min!=null?`min="${o.min}" max="${o.max}"`:''}>${o.hint?`<span class="hint">${o.hint}</span>`:''}</div>`,
  date:(f,l,v,o={})=>`<div class="f ${o.full?'full':''}"><label for="d-${f}">${l}</label><input class="inp" type="date" id="d-${f}" data-f="${f}" value="${esc(iso(v))}">${o.hint?`<span class="hint">${o.hint}</span>`:''}</div>`,
  sel:(f,l,opts,v,o={})=>`<div class="f ${o.full?'full':''}"><label for="d-${f}">${l}</label><select class="inp" id="d-${f}" data-f="${f}" ${o.t?`data-t="${o.t}"`:''}>${o.blank===false?'':'<option value="">—</option>'}${opts.map(x=>{const[val,lab]=Array.isArray(x)?x:[x,x];return `<option value="${esc(val)}" ${String(val)===String(v??'')?'selected':''}>${esc(lab)}</option>`}).join('')}</select>${o.hint?`<span class="hint">${o.hint}</span>`:''}</div>`,
@@ -1468,16 +1572,17 @@ function clean(o){const r={};for(const[k,v]of Object.entries(o))if(v!==null&&v!=
 const drHead=(ey,title,extra='')=>`<div class="dr-h"><div style="min-width:0"><div class="ey">${ey}</div><h3>${title}</h3>${extra}</div><button class="btn ghost x" data-a="close" aria-label="Fechar">${ICON.x}</button></div>`;
 
 /* cliente */
+function nomes(f){const src={kam:['clientes','entrevistas'],gestor:['clientes'],entrevistadores:['entrevistas'],owner:['temas']}[f]||[];const set=new Map();src.forEach(c=>list(c).forEach(x=>{const v=String(x[f]||'').trim();if(v&&!set.has(v.toLowerCase()))set.set(v.toLowerCase(),v)}));return [...set.values()].sort((a,b)=>a.localeCompare(b,'pt-BR'))}
 function drCliente(id){
  const k=id?S.clientes[id]:{etapa:'1. A acionar KAM'};DR={kind:'cliente',id,draft:{followups:[...(k.followups||[])],historico:[...(k.historico||[])]}};
  const r=regua(k)||{};const e=k.cd?entDoCliente(k):null;
  openDrawer(drHead(id?`Cronograma · CD ${esc(k.cd)}`:'Cronograma',id?esc(k.nome):'Incluir cliente elegível',id?`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${etapaPill(k.etapa)}<span class="pill plain">Pendência com ${esc(clienteCom(k))}</span>${r.next?`<span class="pill ${diff(r.next)<0?'p-crit':'p-info'}">Próximo follow-up ${fd(r.next)} · ${r.n} de ${cfg().fuMax}</span>`:''}</div>`:'')+
  `<div class="dr-b" id="dr-form">
-  <fieldset class="fs" data-c="navy"><legend>① Cliente</legend><div class="fg">${F.text('nome','Cliente',k.nome,{full:true})}${F.num('cd','CD',k.cd)}${F.num('posicao','Posição no ranking',k.posicao)}${F.num('bv','BV médio mês (R$)',k.bv,{hint:k.bv?brl(k.bv):''})}${F.text('kam','KAM / Consultor',k.kam)}${F.text('gestor','Gestor',k.gestor)}</div></fieldset>
+  <fieldset class="fs" data-c="navy"><legend>① Cliente</legend><div class="fg">${F.text('nome','Cliente',k.nome,{full:true})}${F.num('cd','CD',k.cd)}${F.num('posicao','Posição no ranking',k.posicao)}${F.num('bv','BV médio mês (R$)',k.bv,{hint:k.bv?brl(k.bv):''})}${F.text('kam','KAM / Consultor',k.kam,{list:nomes('kam'),hint:'Escolha da lista ou escreva um nome novo.'})}${F.text('gestor','Gestor',k.gestor,{list:nomes('gestor')})}</div></fieldset>
   <fieldset class="fs" data-c="blue"><legend>② Funil</legend><div class="fg">${F.sel('etapa','Etapa',ETAPAS,k.etapa,{blank:false})}${F.date('acionadoKam','Acionado o KAM em',k.acionadoKam,{hint:'Início da régua na etapa 2.'})}${F.date('convite','Convite ao cliente em',k.convite,{hint:'Início da régua na etapa 3.'})}${F.date('dataAgendada','Entrevista agendada para',k.dataAgendada)}${F.date('retomarEm','Retomar em',k.retomarEm,{hint:'Para Stand by ou Adiou: vira lembrete no Hoje.'})}
    ${F.sel('entrevistaId','Entrevista vinculada',list('entrevistas').map(x=>[x._id,`${x._id} · ${short(x.cliente)}`]),k.entrevistaId||(e&&e._id))}</div></fieldset>
   <fieldset class="fs" data-c="yellow"><legend>Follow-ups</legend><div class="list-mini" id="fu-list">${fuList()}</div><div><button class="btn sm" data-a="dr-fu">${ICON.plus}Registrar follow-up hoje</button></div></fieldset>
-  <fieldset class="fs" data-c="lilac"><legend>Histórico e status</legend>${F.area('obs','Último status / observação',k.obs,{rows:2,hint:'É o que aparece na lista. Ao salvar uma mudança aqui, ela entra no histórico.'})}<div class="list-mini">${histList()}</div></fieldset>
+  <fieldset class="fs" data-c="lilac"><legend>Histórico e status</legend>${F.area('nota','Nova atualização','',{rows:2,hint:'Escreva o que aconteceu. Ao salvar, vira o último status e entra no histórico abaixo.'})}<div class="list-mini">${histList()}</div></fieldset>
  </div><div class="dr-f">${id?`<button class="btn ghost danger" data-a="dr-del">Excluir</button>`:''}<span class="sp"></span><button class="btn" data-a="close">Cancelar</button><button class="btn pri" data-a="dr-save">Salvar</button></div>`);
 }
 function fuList(){const f=DR.draft.followups;return f.length?f.map((x,i)=>`<div class="row"><span class="d">${fd(x.data)}</span><span style="flex:1">${esc(x.etapa||'')}${x.nota?` · <span class="muted">${esc(x.nota)}</span>`:''}</span><button class="btn ghost sm" data-a="dr-fu-del" data-i="${i}" aria-label="Remover">${ICON.x}</button></div>`).join(''):'<div class="row muted">Nenhum follow-up registrado.</div>'}
@@ -1489,9 +1594,9 @@ function entFormHTML(e,isNew){
  const clientes=list('clientes').sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
  return ` <fieldset class="fs" data-c="navy"><legend>① Cliente</legend><div class="fg">
   ${isNew?F.sel('cd','Cliente do cronograma',clientes.map(k=>[k.cd,`${short(k.nome)} · CD ${k.cd}`]),e.cd,{t:'num',full:true,hint:'Liga a entrevista ao cronograma e move o cliente para “5. Realizada”.'}):F.num('cd','CD',e.cd)}
-  ${F.text('cliente','Cliente (como no relatório)',e.cliente,{full:true})}${F.sel('segmento','Segmento',['Corporate','Middle','High PME','Público','Outros'],e.segmento)}${F.num('bv','BV médio mês (R$)',e.bv,{hint:e.bv?brl(e.bv):''})}${F.num('vidas','Vidas',e.vidas)}${F.text('tempoRel','Tempo de relacionamento',e.tempoRel)}${F.text('produtos','Produtos contratados',e.produtos,{full:true})}${F.text('kam','KAM',e.kam)}${F.text('relatorioUrl','Link do relatório (SharePoint)',e.relatorioUrl)}</div></fieldset>
+  ${F.text('cliente','Cliente (como no relatório)',e.cliente,{full:true})}${F.sel('segmento','Segmento',['Corporate','Middle','High PME','Público','Outros'],e.segmento)}${F.num('bv','BV médio mês (R$)',e.bv,{hint:e.bv?brl(e.bv):''})}${F.num('vidas','Vidas',e.vidas)}${F.text('tempoRel','Tempo de relacionamento',e.tempoRel)}${F.text('produtos','Produtos contratados',e.produtos,{full:true})}${F.text('kam','KAM',e.kam,{list:nomes('kam')})}${F.text('relatorioUrl','Link do relatório (SharePoint)',e.relatorioUrl)}</div></fieldset>
  <fieldset class="fs" data-c="coral"><legend>② Visão do KAM</legend><div class="fg">${F.sel('relacaoDecisor','Relação com o decisor',REL_DEC,e.relacaoDecisor,{hint:'“Em mudança” quando troca a diretoria do cliente ou o KAM da Pluxee.'})}${F.sel('concorrencia','Concorrência',CONC,e.concorrencia,{hint:'“Com sinal” se há assédio, carteira dividida ou BID.'})}${F.date('fimContrato','Fim do contrato (blindagem)',e.fimContrato)}<div></div>${F.area('proximaAcao','Próxima ação (dono e prazo)',e.proximaAcao,{rows:2})}</div></fieldset>
- <fieldset class="fs" data-c="blue"><legend>③ Entrevista</legend><div class="fg">${F.date('data','Data',e.data)}${F.text('entrevistadores','Entrevistadores Pluxee',e.entrevistadores)}${F.text('entrevistado','Entrevistado',e.entrevistado)}${F.text('cargo','Cargo',e.cargo)}</div>
+ <fieldset class="fs" data-c="blue"><legend>③ Entrevista</legend><div class="fg">${F.date('data','Data',e.data)}${F.text('entrevistadores','Entrevistadores Pluxee',e.entrevistadores,{list:nomes('entrevistadores')})}${F.text('entrevistado','Entrevistado',e.entrevistado)}${F.text('cargo','Cargo',e.cargo)}</div>
   <div class="fg g4">${F.num('nota','Nota geral (0–10)',e.nota,{min:0,max:10})}${F.sel('quadrante','Quadrante Tenacity',Object.keys(QUADS),e.quadrante,{hint:sug?`Pelas notas: <b>${sug}</b>. Use “Zona” quando houver fatores externos.`:'Preencha técnico e relacionamento para a sugestão.'})}${F.num('tecnico','Técnico (0–10)',e.tecnico,{min:0,max:10})}${F.num('relacionamento','Relacionamento (0–10)',e.relacionamento,{min:0,max:10})}</div>
   <div id="qmini">${quadMini(e)}</div>
   ${F.area('porqueQuadrante',`${esc(short(e.cliente)||'Cliente')} no quadrante`,e.porqueQuadrante,{rows:4,hint:'Por que o cliente está neste quadrante (texto do slide “Nota geral e quadrante”).'})}
@@ -1638,7 +1743,7 @@ function drTema(id,newFor){
  `<div class="dr-b" id="dr-form">
   ${outros.length?`<div class="note"><b>O mesmo tema (${esc(t.tema)}) aparece em outros clientes:</b><br>${outros.map(o=>{const od=temaD(o);return `${esc(short(o.cliente))}: ${esc(o.resumo||'')} · <i>${esc(od.sit)}</i>${o.encaminhamento==='Plano de ação'||o.encaminhamento==='Backlog'?` · já há iniciativa (${esc(o.area||'')})`:''}`}).join('<br>')}</div>`:''}
   <fieldset class="fs" data-c="navy"><legend>① O que o cliente disse</legend><div class="fg">${F.sel('tipo','Tipo',['Negativo','Oportunidade'],t.tipo,{blank:false})}${F.sel('tema','Tema',c.temas,t.tema)}${F.text('resumo','Resumo do ponto (título)',t.resumo,{full:true})}${F.text('frase','Em uma frase: o que exatamente',t.frase,{full:true,hint:'Concreto, sem jargão. É o que aparece na Visão executiva.',ph:'Ex.: colaboradores com Android não conseguem pagar por aproximação com o cartão virtual'})}${F.area('necessidade','Necessidade do cliente',t.necessidade)}${F.area('citacao','Citação do cliente',t.citacao,{rows:2})}</div></fieldset>
-  <fieldset class="fs" data-c="coral"><legend>② Retorno da área</legend><div class="fg">${F.sel('area','Área responsável',[...new Set([...c.areas,...(t.area?[t.area]:[])])],t.area)}${F.text('owner','Owner',t.owner)}${F.sel('statusRetorno','Status do retorno',STATUS_RET,t.statusRetorno,{blank:false})}${F.sel('proximosPassos','Próximos passos',PROX,t.proximosPassos)}${F.date('ultimaCobranca','Última cobrança',t.ultimaCobranca)}${F.date('prazoArea','Prazo que a área deu',t.prazoArea)}${F.area('retornoArea','Retorno da área',t.retornoArea,{rows:3})}</div></fieldset>
+  <fieldset class="fs" data-c="coral"><legend>② Retorno da área</legend><div class="fg">${F.sel('area','Área responsável',[...new Set([...c.areas,...(t.area?[t.area]:[])])],t.area)}${F.text('owner','Owner',t.owner,{list:nomes('owner')})}${F.sel('statusRetorno','Status do retorno',STATUS_RET,t.statusRetorno,{blank:false})}${F.sel('proximosPassos','Próximos passos',PROX,t.proximosPassos)}${F.date('ultimaCobranca','Última cobrança',t.ultimaCobranca)}${F.date('prazoArea','Prazo que a área deu',t.prazoArea)}${F.area('retornoArea','Retorno da área',t.retornoArea,{rows:3})}</div></fieldset>
   <fieldset class="fs" data-c="green"><legend>③ Retorno ao cliente</legend><div class="fg">${F.sel('encaminhamento','Encaminhamento',ENCAM,t.encaminhamento,{hint:'Esclarecimento: só responder. Plano de ação: exige trabalho da área. Backlog: levado, sem data.'})}${F.area('objetivo','Objetivo / mensagem ao cliente',t.objetivo,{rows:2})}</div></fieldset>
   <fieldset class="fs" data-c="yellow"><legend>④ Ações · curtas, com dono, prazo e status</legend><div class="acts" id="acts">${DR.acoes.map(actHTML).join('')}</div><div><button class="btn sm" data-a="addAcao">${ICON.plus}Adicionar ação</button></div></fieldset>
   <fieldset class="fs" data-c="lilac"><legend>⑤ Acompanhamento e Comitê</legend><div class="fg">${F.text('ultimoAcompanhamento','Último acompanhamento',t.ultimoAcompanhamento,{full:true,ph:'dd/mm/aa · o que aconteceu'})}${F.sel('comite','Levar ao Comitê?',[['false','Não'],['true','Sim']],String(!!t.comite),{blank:false,t:'bool'})}${F.text('insight','Insight para o Comitê',t.insight,{hint:'Uma frase curta começando pelo nome do cliente.'})}${t.planoAntigo?F.area('planoAntigo','Plano (texto antigo da planilha)',t.planoAntigo,{rows:3}):''}</div></fieldset>
@@ -1841,17 +1946,29 @@ Regras:
 Contexto do time: ${k?`cliente ${k.nome} (CD ${k.cd}), BV médio mensal R$ ${Math.round(+k.bv||0)}, KAM ${k.kam||'?'}, gestor ${k.gestor||'?'}.`:'cliente não informado.'}
 
 TRANSCRIÇÃO:
-"""${txt.slice(0,150000)}"""`;
+"""${limpaTranscricao(txt).slice(0,120000)}"""`;
  aiCtl=new AbortController();
- try{const r=await sample.json(prompt,{signal:aiCtl.signal});const d=deckClean(r,base);DR.src=txt;DR.cdSel=cd;drDeck(d,{fromNew:true})}
- catch(e){$$('.dr-f button').forEach(b=>b.disabled=false);
+ let r;try{r=await sample.json(prompt,{signal:aiCtl.signal,modelTier:'complex'})}
+ catch(e){$$('.dr-f button').forEach(b=>b.disabled=false);console.error('deckGenerate',e);
   const msg={cancelled:'Geração interrompida.',not_granted:'O uso do Claude não foi permitido nesta página.',sampling_disabled:'O Claude não está disponível para esta conta.',rate_limited:'Muitas chamadas seguidas. Tente de novo em alguns minutos.',prompt_too_large:'A transcrição é grande demais. Cole só a parte da conversa.',invalid_json:'O Claude não devolveu o formato esperado. Tente de novo.',refused:'O Claude não processou este texto.'}[e&&e.code]||'Não foi possível gerar agora. Tente de novo.';
-  $('#ne-status').innerHTML=`<div class="note warn">${msg}</div>`}}
+  $('#ne-status').innerHTML=`<div class="note warn">${msg}<br><span class="muted" style="font-size:11.5px">Código: ${esc((e&&e.code)||'desconhecido')}${e&&e.code==='invalid_json'&&e.text?' · resposta cortada no meio':''}</span></div>`;return}
+ try{const d=deckClean(r,base);DR.src=txt;DR.cdSel=cd;drDeck(d,{fromNew:true})}
+ catch(e){console.error('deckRender',e);$$('.dr-f button').forEach(b=>b.disabled=false);$('#ne-status').innerHTML=`<div class="note warn">O Claude respondeu, mas não consegui montar os slides.<br><span class="muted" style="font-size:11.5px">Detalhe: ${esc(e&&e.message||'')}</span></div>`}}
+function limpaTranscricao(t){return String(t)
+ .replace(/^WEBVTT.*$/m,'')
+ .replace(/^\s*\d{1,2}:\d{2}(:\d{2})?([.,]\d+)?\s*-->\s*\d{1,2}:\d{2}(:\d{2})?([.,]\d+)?.*$/gm,'')
+ .replace(/^\s*[0-9a-f-]{8,}\/\d+-\d+\s*$/gim,'')
+ .replace(/^\s*\d+\s*$/gm,'')
+ .replace(/<v ([^>]+)>/g,'$1: ').replace(/<\/v>/g,'')
+ .replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim()}
 function deckClean(r,base){const c=cfg();const o=r&&typeof r==='object'?r:{};const d={...o};
- d.overview={...(o.overview||{})};d.kam={...(o.kam||{})};d.insights={valor:[],melhoria:[],...(o.insights||{})};d.plano={tipo:'Oportunidades',itens:[],...(o.plano||{})};
+ const obj=x=>x&&typeof x==='object'&&!Array.isArray(x)?x:{};const arr=x=>Array.isArray(x)?x:(typeof x==='string'&&x.trim()?[x]:[]);const str=x=>x==null?'':typeof x==='string'?x:Array.isArray(x)?x.join(' '):String(x);
+ d.overview={...obj(o.overview)};d.kam={...obj(o.kam)};const I=obj(o.insights);d.insights={valor:arr(I.valor).map(str),melhoria:arr(I.melhoria).map(str)};const P=obj(o.plano);d.plano={tipo:P.tipo==='Plano de ação'?'Plano de ação':'Oportunidades',itens:P.itens};
+ for(const k of ['nota','tecnico','relacionamento']){const n=parseFloat(String(d[k]??'').replace(',','.'));d[k]=isNaN(n)?null:n}
+ for(const k of ['cliente','porqueQuadrante','entrevistado','cargo','entrevistadores','formato'])if(d[k]!=null&&typeof d[k]!=='string')d[k]=str(d[k]);
  if(base){d.cd=base.cd||d.cd;if(base.bv&&!d.overview.bv)d.overview.bv=base.bv;if(base.kam&&!d.overview.kam)d.overview.kam=base.kam;if(!d.cliente&&base.cliente)d.cliente=short(base.cliente)}
- d.resumo=(Array.isArray(o.resumo)?o.resumo:[]).filter(x=>x&&x.titulo).slice(0,6).map(x=>({...x,tipo:['Positivo','Neutro','Negativo'].includes(x.tipo)?x.tipo:'Neutro',citacoes:Array.isArray(x.citacoes)?x.citacoes.slice(0,3):[]}));
- d.plano.itens=(Array.isArray(d.plano.itens)?d.plano.itens:[]).filter(x=>x&&x.tema).slice(0,6);
+ d.resumo=(Array.isArray(o.resumo)?o.resumo:[]).filter(x=>x&&x.titulo).slice(0,6).map(x=>({...x,titulo:str(x.titulo),texto:str(x.texto),tipo:['Positivo','Neutro','Negativo'].includes(x.tipo)?x.tipo:'Neutro',citacoes:arr(x.citacoes).map(str).slice(0,3)}));
+ d.plano.itens=arr(d.plano.itens).filter(x=>x&&typeof x==='object'&&x.tema).slice(0,6).map(x=>({...x,tema:str(x.tema),necessidade:str(x.necessidade),acao:str(x.acao),frase:str(x.frase)}));
  if(d.quadrante&&!QUADS[d.quadrante])d.quadrante=null;
  const t={};if(o.temas&&typeof o.temas==='object')for(const[k,v]of Object.entries(o.temas))if(c.temas.includes(k)&&AVAL.includes(v))t[k]=v;d.temas=t;
  return d}
@@ -1905,7 +2022,7 @@ ${DR.src?`Transcrição original, para consulta:\n"""${DR.src.slice(0,120000)}""
 JSON ATUAL:
 ${JSON.stringify(DR.deck)}`;
  aiCtl=new AbortController();
- try{const r=await sample.json(prompt,{signal:aiCtl.signal,cache:false});DR.deck=deckClean(r,null);$('#dk-body').innerHTML=deckBody(DR.deck);toast('Slides ajustados.')}
+ try{const r=await sample.json(prompt,{signal:aiCtl.signal,cache:false,modelTier:'complex'});DR.deck=deckClean(r,null);$('#dk-body').innerHTML=deckBody(DR.deck);toast('Slides ajustados.')}
  catch(e){console.error(e);$('#dk-st').textContent=e&&e.code==='cancelled'?'':e&&e.code==='not_granted'?'O uso do Claude não foi permitido nesta página. Libere e tente de novo.':'Não foi possível ajustar agora. Tente de novo.';btn.disabled=false}}
 function deckToSystem(d){const o=d.overview||{},k=d.kam||{};const base=DR.cdSel?baseFromCliente(DR.cdSel):{};
  const e={...base,cliente:base.cliente||d.cliente,segmento:o.segmento,bv:o.bv||base.bv,vidas:o.vidas,produtos:o.produtos,tempoRel:o.tempoRel,kam:o.kam||base.kam,fimContrato:o.fimContrato,data:d.data,entrevistado:d.entrevistado,cargo:d.cargo,entrevistadores:d.entrevistadores,
@@ -2180,9 +2297,9 @@ async function saveDrawer(btn){
   const id=DR.id||`cd-${o.cd}`;const cur=DR.id?S.clientes[DR.id]:{};
   if(!DR.id&&S.clientes[id]){toast('Já existe um cliente com esse CD.','crit');return}
   const hist=[...DR.draft.historico];
-  if(o.obs&&o.obs!==cur.obs)hist.push({data:TODAY_ISO,texto:o.obs});
+  const nota=(o.nota||'').trim();if(nota)hist.push({data:TODAY_ISO,texto:nota});
   if(cur.etapa&&o.etapa!==cur.etapa)hist.push({data:TODAY_ISO,texto:`Etapa: ${cur.etapa} → ${o.etapa}`});
-  const body={...mergeForm(cur,collect(form)),followups:DR.draft.followups,historico:hist};
+  const body={...mergeForm(cur,collect(form)),followups:DR.draft.followups,historico:hist};delete body.nota;if(nota)body.obs=nota;
   if(o.etapa==='2. Aguardando KAM'&&!o.acionadoKam)body.acionadoKam=TODAY_ISO;
   if(await put('clientes',id,body)){toast('Cliente salvo.');closeDrawer()}
  }else if(DR.kind==='entrevista'){
@@ -2314,7 +2431,7 @@ function funilData(){const all=list('clientes');const at=(k,n)=>(k.etapa||'').st
  const fora=all.filter(k=>['LOST / fora do escopo','Recusou'].includes(k.etapa));const eleg=all.filter(k=>!fora.includes(k));
  const n2=all.filter(k=>[2,3,4,5].some(n=>at(k,n))),n3=all.filter(k=>[3,4,5].some(n=>at(k,n))),n4=all.filter(k=>[4,5].some(n=>at(k,n))),n5=all.filter(k=>at(k,5));
  const dev=list('entrevistas').filter(e=>e.retornoEnviadoEm);const bv=a=>a.reduce((x,k)=>x+(+k.bv||0),0);
- return {all,eleg,fora,R:[['Contas no cronograma',all.length,bv(all)],['Elegíveis',eleg.length,bv(eleg)],['KAM acionado',n2.length,bv(n2)],['Convite ao cliente',n3.length,bv(n3)],['Entrevista agendada',n4.length,bv(n4)],['Entrevista realizada',n5.length,bv(n5)],['Devolutiva feita',dev.length,dev.reduce((x,e)=>x+(+e.bv||0),0)]]}}
+ return {all,eleg,fora,R:[['Contas no cronograma',all.length,bv(all)],['Elegíveis',eleg.length,bv(eleg)],['KAM acionado',n2.length,bv(n2)],['Convite ao cliente',n3.length,bv(n3)],['Entrevista agendada',n4.length,bv(n4)],['Entrevista realizada',n5.length,bv(n5)]]}}
 async function exportAll(btn){btn.disabled=true;
  try{const X=await loadExcelJS();const wb=new X.Workbook();wb.creator='Central do FER';const c=cfg();
   /* Painel */
