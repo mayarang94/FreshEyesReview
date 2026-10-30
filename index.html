@@ -1148,6 +1148,8 @@ async function supaShim(){
  const caps={db:supaDb(),user,downloads:supaDownloads(),sample:null};
  window.claude={use:async n=>caps[n]??null};
  // rodapé: quem está logado + sair
+ const ng=document.querySelector('.rail-foot');if(ng&&!document.getElementById('sb-conta')){const nv=document.createElement('nav');nv.className='navgrp';nv.id='sb-conta';nv.innerHTML=`<span>Minha conta</span><a class="nav" href="#" data-sbnav="pw"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Trocar senha</a><a class="nav" href="#" data-sbnav="out"><svg viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>Sair</a>`;ng.parentNode.insertBefore(nv,ng);
+  nv.addEventListener('click',async ev=>{const x=ev.target.closest('[data-sbnav]');if(!x)return;ev.preventDefault();if(x.dataset.sbnav==='pw'){window.__sbTrocarSenha&&window.__sbTrocarSenha()}else{await supa.auth.signOut();location.reload()}})}
  const rf=document.querySelector('.rail-foot');if(rf&&!document.getElementById('sb-out')){const d=document.createElement('div');d.className='sb-who';d.innerHTML=`<span>${esc((supaPerfil&&(supaPerfil.nome||supaPerfil.usuario))||'')} · ${pode?(adm?'admin':'operacional'):'sem perfil'}</span><button class="btn sm ghost" id="sb-pw" type="button">Trocar senha</button><button class="btn sm ghost" id="sb-out" type="button">Sair</button>`;rf.appendChild(d);d.querySelector('#sb-pw').addEventListener('click',()=>window.__sbTrocarSenha&&window.__sbTrocarSenha());d.querySelector('#sb-out').addEventListener('click',async()=>{await supa.auth.signOut();location.reload()})}
  if(!pode)toast('Seu usuário ainda não tem perfil. Peça ao admin para liberar o acesso.','crit');
 }
