@@ -784,6 +784,9 @@ body.op [data-nav="parametros"],body.op [data-a="dr-del"],body.op [data-a="delAc
 .sb-who{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11.5px;color:#C9C6E3}
 .sb-who .btn{color:#C9C6E3;padding:3px 8px}
 .sb-card form,#sb-wait{display:flex;flex-direction:column;gap:8px}.sb-card form[hidden],#sb-wait[hidden]{display:none}.sb-wait{margin:0;font-size:13.5px;line-height:1.5}
+.rg-chip[draggable="true"]{cursor:grab}.rg-chip.dragging{opacity:.45}
+body.rg-dragging .rg-col{transition:background .12s}
+body.rg-dragging .rg-col.drop{background:color-mix(in srgb,var(--green) 12%,transparent);outline:2px dashed var(--green);outline-offset:-3px}
 </style>
 
 <div class="app" id="app">
@@ -1263,14 +1266,43 @@ function vRegua(loading){
  h+=`<div class="filters"><span class="pill ${late?'p-crit':'p-ok'}">${late?pl(late,'cliente com passo atrasado','clientes com passo atrasado'):'Nenhum passo atrasado'}</span>${fora.map(([e,x])=>`<button class="btn sm ghost" data-a="filtroEtapa" data-v="${esc(e)}" title="${esc(x.map(k=>short(k.nome)).join(', '))}">Fora da régua · ${esc(e)}: <b>${x.length}</b></button>`).join('')}</div>`;
  const cols=STEPS.map(st=>{let xs=I.filter(i=>i.n===st.n).sort((a,b)=>(b.late?1:0)-(a.late?1:0)||(a.due||'9').localeCompare(b.due||'9')||(+b.bv||0)-(+a.bv||0));
   const total=xs.length;const cap=st.n===1?6:99;const extra=total-cap;xs=xs.slice(0,cap);
-  return `<div class="rg-col ${total?'':'empty-col'}"><div class="rg-step"><span class="rg-n ${st.ph}">${st.n===12?'✓':st.n}</span><div><b>${st.t}</b><small>${st.s}</small></div><em class="num">${total}</em></div>
-   <div class="rg-list">${xs.map(i=>`<button class="rg-chip ${i.late?'late':''}" data-a="rg-open" data-c="${i.c}" data-id="${esc(i.id)}" data-n="${i.n}"><span class="rg-nm">${esc(i.nome)}</span><span class="rg-meta">${i.bv?brl(i.bv):''}${i.quad?` · ${esc(i.quad)}`:''}</span><span class="rg-info">${esc(i.info)}${i.due&&i.n<12?` · <b class="${i.late?'crit':''}">${i.late?'atrasado desde '+fd(i.due):'até '+fd(i.due)}</b>`:''}</span></button>`).join('')}
+  return `<div class="rg-col ${total?'':'empty-col'}" data-step="${st.n}"><div class="rg-step"><span class="rg-n ${st.ph}">${st.n===12?'✓':st.n}</span><div><b>${st.t}</b><small>${st.s}</small></div><em class="num">${total}</em></div>
+   <div class="rg-list">${xs.map(i=>`<button class="rg-chip ${i.late?'late':''}" draggable="true" data-a="rg-open" data-c="${i.c}" data-id="${esc(i.id)}" data-n="${i.n}"><span class="rg-nm">${esc(i.nome)}</span><span class="rg-meta">${i.bv?brl(i.bv):''}${i.quad?` · ${esc(i.quad)}`:''}</span><span class="rg-info">${esc(i.info)}${i.due&&i.n<12?` · <b class="${i.late?'crit':''}">${i.late?'atrasado desde '+fd(i.due):'até '+fd(i.due)}</b>`:''}</span></button>`).join('')}
    ${extra>0?`<button class="btn ghost sm" data-a="filtroEtapa" data-v="1. A acionar KAM">+ ${extra} no cronograma</button>`:''}</div></div>`}).join('');
  const spans={agendar:3,entrevista:1,pos:4,areas:1,devol:1,fim:1};
  h+=`<section class="card"><div class="rg-wrap"><div class="rg">${PHASES.map(p=>`<div class="rg-ph" style="grid-column:span ${spans[p.k]};--pc:${p.c}">${p.t}</div>`).join('')}${cols}</div></div></section>
- <p class="muted" style="margin:0;font-size:12.5px">Cada cliente aparece no próximo passo que falta fazer. Os passos 5 a 9 contam a partir da data da entrevista (prazos em Parâmetros); a ata ao cliente só entra depois da reunião com o KAM. Clique no cliente para abrir a ficha.</p>`;
+ <p class="muted" style="margin:0;font-size:12.5px"><b>Arraste o cliente para outra coluna</b> para mudar o passo (dá para desfazer). Cada cliente aparece no próximo passo que falta fazer. Os passos 5 a 9 contam a partir da data da entrevista (prazos em Parâmetros); a ata ao cliente só entra depois da reunião com o KAM. Clique no cliente para abrir a ficha.</p>`;
  return h;
 }
+
+
+/* ── régua: arrastar e soltar ── */
+const RG_ETAPA={1:'1. A acionar KAM',2:'2. Aguardando KAM',3:'4. Agendada',4:'5. Realizada'};
+async function rgMove(c,id,from,to){
+ if(from===to)return;
+ if(c==='clientes'){
+  const k=S.clientes[id];if(!k)return;
+  if(to>4){toast('Para avançar além da entrevista, registre a entrevista primeiro (Entrevistas › Nova entrevista).','crit');return}
+  const et=RG_ETAPA[to];if(to===2&&/^[23]\./.test(k.etapa||''))return;
+  const p={etapa:et,historico:[...(k.historico||[]),{data:TODAY_ISO,texto:`Etapa: ${k.etapa||'—'} → ${et}`}]};
+  if(to===2&&!k.acionadoKam)p.acionadoKam=TODAY_ISO;
+  if(await patch('clientes',id,p))toast(to===3?`${short(k.nome)} → Agendada. Coloque a data da entrevista na ficha.`:`${short(k.nome)} → ${et}`);
+  return}
+ const e=S.entrevistas[id];if(!e)return;
+ if(to<5){toast('A entrevista já foi registrada. Para voltar a etapa do cliente, use o Cronograma.','crit');return}
+ if(to>=11&&!areasDone(e)){toast('Ainda há pontos sem retorno das áreas. Atualize no Plano de ação antes de avançar.','crit');return}
+ const p={};const feitos=[];const desfeitos=[];
+ for(const q of POS){if(q.n<to){if(!e[q.f]){p[q.f]=TODAY_ISO;feitos.push(q.n)}}else if(e[q.f]){p[q.f]=null;desfeitos.push(q.n)}}
+ if(to===12&&!e.retornoEnviadoEm){p.retornoEnviadoEm=TODAY_ISO;feitos.push(11)}
+ if(to<12&&e.retornoEnviadoEm){p.retornoEnviadoEm=null;desfeitos.push(11)}
+ const txt=[feitos.length?`Passo ${feitos.join(', ')} feito`:'',desfeitos.length?`passo ${desfeitos.join(', ')} reaberto`:''].filter(Boolean).join(' · ')||'Régua ajustada';
+ const b={...e,...p,log:[...(e.log||[]),{data:TODAY_ISO,texto:txt}]};Object.keys(p).forEach(f=>{if(p[f]===null)delete b[f]});delete b._id;
+ if(await put('entrevistas',id,b))toast(`${short(e.cliente)}: ${txt}`)}
+document.addEventListener('dragstart',ev=>{const ch=ev.target.closest&&ev.target.closest('.rg-chip');if(!ch)return;ev.dataTransfer.setData('text/plain',JSON.stringify({c:ch.dataset.c,id:ch.dataset.id,n:+ch.dataset.n}));ev.dataTransfer.effectAllowed='move';ch.classList.add('dragging');document.body.classList.add('rg-dragging')});
+document.addEventListener('dragend',ev=>{document.body.classList.remove('rg-dragging');$$('.rg-chip.dragging').forEach(x=>x.classList.remove('dragging'));$$('.rg-col.drop').forEach(x=>x.classList.remove('drop'))});
+document.addEventListener('dragover',ev=>{const col=ev.target.closest&&ev.target.closest('.rg-col');if(!col||!document.body.classList.contains('rg-dragging'))return;ev.preventDefault();ev.dataTransfer.dropEffect='move';$$('.rg-col.drop').forEach(x=>x!==col&&x.classList.remove('drop'));col.classList.add('drop')});
+document.addEventListener('drop',async ev=>{const col=ev.target.closest&&ev.target.closest('.rg-col');if(!col)return;ev.preventDefault();col.classList.remove('drop');let d;try{d=JSON.parse(ev.dataTransfer.getData('text/plain'))}catch{return}
+ TX=[];await rgMove(d.c,d.id,d.n,+col.dataset.step);const tx=TX;TX=null;if(tx&&tx.length){UNDO.push({label:'mudança na régua',items:tx,at:Date.now()});if(UNDO.length>20)UNDO.shift();saveUndo();renderUndo()}render()});
 
 /* ── HISTÓRICO ── */
 function fullTimeline(cd){const U=[];const k=S.clientes['cd-'+cd];const es=list('entrevistas').filter(e=>String(e.cd)===String(cd));
@@ -1906,7 +1938,8 @@ function saveUndo(){try{localStorage.setItem('fer-undo',JSON.stringify(UNDO))}ca
 function track(c,id){if(!TX||TX.some(x=>x.c===c&&x.id===id))return;const cur=S[c][id];TX.push({c,id,prev:cur?JSON.parse(JSON.stringify(cur)):null})}
 const UNDOABLE=new Set(['dispKam','qa-save','qa-del','fu','advance','standby','acionei','revisado','retEnviado','cobrei','compartilhei','acaoFeita','posFeito','qk-save','qk-upd','qk-del']);
 async function undoLast(){const u=UNDO.pop();saveUndo();renderUndo();if(!u)return;
- for(const x of [...u.items].reverse()){if(x.prev){const b={...x.prev};delete b._id;await db.collection(x.c).doc(x.id).set(b).catch(()=>{})}else await db.collection(x.c).doc(x.id).delete().catch(()=>{})}
+ for(const x of [...u.items].reverse()){if(x.prev){const b={...x.prev};delete b._id;await db.collection(x.c).doc(x.id).set(b).then(()=>{S[x.c][x.id]={...b,_id:x.id}}).catch(()=>{})}else await db.collection(x.c).doc(x.id).delete().then(()=>{delete S[x.c][x.id]}).catch(()=>{})}
+ render();
  toast(`Desfeito: ${u.label}.`);if(DR&&DR.kind==='quick'){DR.forceLog=true;refreshQuick()}}
 function renderUndo(){let el=$('#undo-fab');const u=UNDO[UNDO.length-1];
  if(!el){el=document.createElement('button');el.id='undo-fab';el.className='undo-fab';el.dataset.a='undo';const rf=document.querySelector('.rail-foot');(rf&&getComputedStyle(rf).display!=='none'?rf:document.body).prepend(el)}
