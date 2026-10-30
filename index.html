@@ -1314,7 +1314,7 @@ async function rgMove(c,id,from,to){
   const k=S.clientes[id];if(!k)return;
   if(to>4){toast('Para avançar além da entrevista, registre a entrevista primeiro (Entrevistas › Nova entrevista).','crit');return}
   const et=RG_ETAPA[to];if(to===2&&/^[23]\./.test(k.etapa||''))return;
-  const p={etapa:et,historico:[...(k.historico||[]),{data:TODAY_ISO,texto:`Etapa: ${k.etapa||'—'} → ${et}`}]};
+  const tx=`Etapa: ${k.etapa||'—'} → ${et}`;const p={etapa:et,historico:[...(k.historico||[]),{data:TODAY_ISO,texto:tx}],obs:stampTxt(tx)};
   if(to===2&&!k.acionadoKam)p.acionadoKam=TODAY_ISO;
   if(await patch('clientes',id,p))toast(to===3?`${short(k.nome)} → Agendada. Coloque a data da entrevista na ficha.`:`${short(k.nome)} → ${et}`);
   return}
@@ -1327,7 +1327,9 @@ async function rgMove(c,id,from,to){
  if(to<12&&e.retornoEnviadoEm){p.retornoEnviadoEm=null;desfeitos.push(11)}
  const txt=[feitos.length?`Passo ${feitos.join(', ')} feito`:'',desfeitos.length?`passo ${desfeitos.join(', ')} reaberto`:''].filter(Boolean).join(' · ')||'Régua ajustada';
  const b={...e,...p,log:[...(e.log||[]),{data:TODAY_ISO,texto:txt}]};Object.keys(p).forEach(f=>{if(p[f]===null)delete b[f]});delete b._id;
- if(await put('entrevistas',id,b))toast(`${short(e.cliente)}: ${txt}`)}
+ if(await put('entrevistas',id,b)){const st=STEPS.find(x=>x.n===to);const k=S.clientes['cd-'+e.cd]||list('clientes').find(x=>x.entrevistaId===id);
+  if(k){const tx=`Régua: ${st?st.t+' ('+st.s+')':'passo '+to} · ${txt}`;await patch('clientes',k._id,{historico:[...(k.historico||[]),{data:TODAY_ISO,texto:tx}],obs:stampTxt(tx)})}
+  toast(`${short(e.cliente)}: ${txt}`)}}
 document.addEventListener('dragstart',ev=>{const ch=ev.target.closest&&ev.target.closest('.rg-chip');if(!ch)return;ev.dataTransfer.setData('text/plain',JSON.stringify({c:ch.dataset.c,id:ch.dataset.id,n:+ch.dataset.n}));ev.dataTransfer.effectAllowed='move';ch.classList.add('dragging');document.body.classList.add('rg-dragging')});
 document.addEventListener('dragend',ev=>{document.body.classList.remove('rg-dragging');$$('.rg-chip.dragging').forEach(x=>x.classList.remove('dragging'));$$('.rg-col.drop').forEach(x=>x.classList.remove('drop'))});
 document.addEventListener('dragover',ev=>{const col=ev.target.closest&&ev.target.closest('.rg-col');if(!col||!document.body.classList.contains('rg-dragging'))return;ev.preventDefault();ev.dataTransfer.dropEffect='move';$$('.rg-col.drop').forEach(x=>x!==col&&x.classList.remove('drop'));col.classList.add('drop')});
