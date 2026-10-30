@@ -778,12 +778,12 @@ body.op [data-nav="parametros"],body.op [data-a="dr-del"],body.op [data-a="delAc
 .sb-brand{display:flex;align-items:center;gap:12px;margin-bottom:14px}.sb-brand .mark{background:var(--navy)}
 .sb-brand b{font-family:var(--f-display);font-size:18px;display:block}.sb-brand small{color:var(--ink-3);font-size:12px;font-weight:600}
 .sb-card label{font-size:12.5px;font-weight:700;color:var(--ink-2);margin-top:4px}
-.sb-card .btn.pri{justify-content:center;margin-top:6px;padding:10px}.sb-card .btn.ghost{justify-content:center}
+.sb-card .btn.pri{justify-content:center;margin-top:6px;padding:10px}.sb-card .btn.ghost{justify-content:center}.sb-card .sb-small{font-size:12px;padding:4px;color:var(--ink-3)}
 .sb-msg{min-height:18px;margin:2px 0 0;font-size:12.5px;color:var(--crit);font-weight:600}
 .sb-foot{margin:6px 0 0;font-size:12px;color:var(--ink-3);text-align:center}
-.sb-who{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11.5px;color:#C9C6E3}
+.sb-who{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;font-size:11.5px;color:#C9C6E3}
 .sb-who .btn{color:#C9C6E3;padding:3px 8px}
-.sb-card form,#sb-wait{display:flex;flex-direction:column;gap:8px}.sb-card form[hidden],#sb-wait[hidden]{display:none}.sb-wait{margin:0;font-size:13.5px;line-height:1.5}
+.sb-card form,#sb-wait{display:flex;flex-direction:column;gap:8px}.sb-card form[hidden],#sb-wait[hidden]{display:none}.sb-rs{display:inline-flex;gap:6px;align-items:center}.sb-wait{margin:0;font-size:13.5px;line-height:1.5}
 .rg-chip[draggable="true"]{cursor:grab}.rg-chip.dragging{opacity:.45}
 body.rg-dragging .rg-col{transition:background .12s}
 body.rg-dragging .rg-col.drop{background:color-mix(in srgb,var(--green) 12%,transparent);outline:2px dashed var(--green);outline-offset:-3px}
@@ -1034,7 +1034,7 @@ function setSync(){const dot=$('#sync-dot'),tx=$('#sync-txt');
  const [c,t]=m[dbState]||m.connecting;dot.className='dot '+c;tx.textContent=t}
 let rq=0;function schedule(){if(rq)return;rq=requestAnimationFrame(()=>{rq=0;render()})}
 // ===== Modo site próprio (Supabase) — só liga fora do Claude e com SUPA preenchido =====
-const SUPA={url:'https://zflqievgszrkcbtzwcch.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbHFpZXZnc3pya2NidHp3Y2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyOTUyMjQsImV4cCI6MjEwODg3MTIyNH0.oK8Kr5ym-qvrO-CCebDz4nHMELDFsEhNy10pRSLR7u0'}; // preenchido na publicação do GitHub
+const SUPA={url:'https://zflqievgszrkcbtzwcch.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpmbHFpZXZnc3pya2NidHp3Y2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyOTUyMjQsImV4cCI6MjEwODg3MTIyNH0.oK8Kr5ym-qvrO-CCebDz4nHMELDFsEhNy10pRSLR7u0'};let SB_RECOVERY=false; // preenchido na publicação do GitHub
 let supa=null,supaUser=null,supaPerfil=null;
 function loadSupaLib(){return new Promise((res,rej)=>{if(window.supabase&&window.supabase.createClient)return res(window.supabase);const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';sc.onload=()=>res(window.supabase);sc.onerror=rej;document.head.appendChild(sc)})}
 // cada usuário vira um endereço interno na caixa do admin (o Supabase exige e-mail com domínio válido; nenhum e-mail é enviado)
@@ -1049,6 +1049,20 @@ function supaLoginUI(){
    <p class="sb-msg" id="sb-msg" role="alert"></p>
    <button class="btn pri" type="submit" id="sb-go">Entrar</button>
    <button class="btn ghost" type="button" id="sb-to-new">Primeiro acesso? Crie sua senha</button>
+   <button class="btn ghost sb-small" type="button" id="sb-to-forgot">Esqueci minha senha</button>
+  </form>
+  <form id="sb-f-forgot" hidden autocomplete="off">
+   <p class="sb-wait"><b>Esqueceu a senha?</b> Fale com a admin da Central. Ela cria uma senha provisória para você em <b>Parâmetros › Acessos</b>.</p>
+   <p class="sb-wait">Depois de entrar com a senha provisória, clique em <b>Trocar senha</b> no rodapé do menu e crie a sua.</p>
+   <button class="btn ghost" type="button" id="sb-f-back">Voltar</button>
+  </form>
+  <form id="sb-f-reset" hidden autocomplete="off">
+   <p class="sb-wait"><b>Crie sua nova senha.</b></p>
+   <label for="sb-rpass">Nova senha (mínimo 8 caracteres)</label><input class="inp" id="sb-rpass" type="password" autocomplete="new-password" required minlength="8">
+   <label for="sb-rpass2">Repita a nova senha</label><input class="inp" id="sb-rpass2" type="password" autocomplete="new-password" required minlength="8">
+   <p class="sb-msg" id="sb-rmsg" role="alert"></p>
+   <button class="btn pri" type="submit" id="sb-rgo">Salvar nova senha</button>
+   <button class="btn ghost" type="button" id="sb-r-cancel" hidden>Cancelar</button>
   </form>
   <form id="sb-f-new" hidden autocomplete="off">
    <label for="sb-nuser">Usuário</label><input class="inp" id="sb-nuser" required autocapitalize="none" placeholder="ex.: ana.martins">
@@ -1068,7 +1082,18 @@ function supaAuth(){return new Promise(async res=>{
  const ov=supaLoginUI();const fi=ov.querySelector('#sb-f-in'),fn=ov.querySelector('#sb-f-new');
  ov.querySelector('#sb-out2').addEventListener('click',async()=>{await supa.auth.signOut();location.reload()});
  const done=async user=>{supaUser=user;const raw=await supaPerfilLoad();if(!supaPerfil){supaShowWait(ov);return}ov.hidden=true;res()};
+ const fr=ov.querySelector('#sb-f-forgot'),fx=ov.querySelector('#sb-f-reset');const only=f=>[fi,fn,fr,fx].forEach(x=>x.hidden=x!==f);
+ ov.querySelector('#sb-to-forgot').addEventListener('click',()=>only(fr));
+ ov.querySelector('#sb-f-back').addEventListener('click',()=>only(fi));
+ fx.addEventListener('submit',async ev=>{ev.preventDefault();const m=fx.querySelector('#sb-rmsg');const p1=fx.querySelector('#sb-rpass').value,p2=fx.querySelector('#sb-rpass2').value;
+  if(p1!==p2){m.textContent='As senhas não são iguais.';return}const b=fx.querySelector('#sb-rgo');b.disabled=true;
+  const {data,error}=await supa.auth.updateUser({password:p1});b.disabled=false;
+  if(error){m.textContent=/different|same/i.test(error.message)?'Use uma senha diferente da anterior.':/weak|password/i.test(error.message)?'Senha fraca: use pelo menos 8 caracteres.':'Não foi possível salvar. Peça um novo link.';return}
+  toast('Senha alterada.');if(window.__sbResetOnly){ov.hidden=true;window.__sbResetOnly=false;return}await done(data.user)});
+ ov.querySelector('#sb-r-cancel').addEventListener('click',()=>{ov.hidden=true});
+ window.__sbTrocarSenha=()=>{window.__sbResetOnly=true;ov.hidden=false;only(fx);fx.querySelector('#sb-r-cancel').hidden=false;fx.reset();fx.querySelector('#sb-rmsg').textContent='';fx.querySelector('#sb-rpass').focus()};
  const {data:{session}}=await supa.auth.getSession();
+ if(session&&SB_RECOVERY){only(fx);return}
  if(session){await done(session.user);return}
  setTimeout(()=>fi.querySelector('#sb-user').focus(),30);
  ov.querySelector('#sb-to-new').addEventListener('click',()=>{fi.hidden=true;fn.hidden=false;fn.querySelector('#sb-nuser').value=fi.querySelector('#sb-user').value;fn.querySelector('#sb-nuser').focus()});
@@ -1090,7 +1115,9 @@ function supaAuth(){return new Promise(async res=>{
 async function supaAcessos(){const el=document.getElementById('sb-acessos');if(!el||!supa)return;
  const {data,error}=await supa.from('perfis').select('user_id,nome,usuario,papel').order('papel').order('nome');
  if(error){el.innerHTML='<p class="muted">Não foi possível carregar os acessos.</p>';return}
- el.innerHTML=`<div class="tw"><table class="t"><thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th></tr></thead><tbody>${data.map(r=>`<tr><td>${esc(r.nome||'–')}</td><td>${esc(r.usuario||'')}</td><td><select class="inp" data-sbuid="${esc(r.user_id)}" ${r.user_id===supaUser.id?'disabled':''} style="width:auto">${[['pendente','Aguardando liberação'],['operacional','Operacional'],['admin','Admin'],['bloqueado','Sem acesso']].map(([v,l])=>`<option value="${v}" ${r.papel===v?'selected':''}>${l}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`;
+ el.innerHTML=`<div class="tw"><table class="t"><thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Senha</th></tr></thead><tbody>${data.map(r=>`<tr><td>${esc(r.nome||'–')}</td><td>${esc(r.usuario||'')}</td><td><select class="inp" data-sbuid="${esc(r.user_id)}" ${r.user_id===supaUser.id?'disabled':''} style="width:auto">${[['pendente','Aguardando liberação'],['operacional','Operacional'],['admin','Admin'],['bloqueado','Sem acesso']].map(([v,l])=>`<option value="${v}" ${r.papel===v?'selected':''}>${l}</option>`).join('')}</select></td><td>${r.user_id===supaUser.id?'<span class="muted">use “Trocar senha”</span>':`<span class="sb-rs"><input class="inp" type="text" placeholder="senha provisória" data-sbpw="${esc(r.user_id)}" autocomplete="off" style="width:150px"><button class="btn sm" type="button" data-sbpwgo="${esc(r.user_id)}">Redefinir</button></span>`}</td></tr>`).join('')}</tbody></table></div>`;
+ el.querySelectorAll('[data-sbpwgo]').forEach(bt=>bt.addEventListener('click',async()=>{const uid=bt.dataset.sbpwgo;const inp=el.querySelector(`[data-sbpw="${uid}"]`);const v=inp.value.trim();if(v.length<8){toast('A senha provisória precisa ter pelo menos 8 caracteres.','crit');return}
+  bt.disabled=true;const {error}=await supa.rpc('admin_definir_senha',{uid,senha:v});bt.disabled=false;if(error){toast('Não foi possível redefinir a senha.','crit');return}inp.value='';toast('Senha provisória definida. Passe para a pessoa e peça para trocar depois de entrar.')}));
  el.querySelectorAll('[data-sbuid]').forEach(sel=>sel.addEventListener('change',async()=>{const {error}=await supa.from('perfis').update({papel:sel.value}).eq('user_id',sel.dataset.sbuid);toast(error?'Não foi possível alterar o perfil.':'Perfil atualizado.',error?'crit':'')}))}
 function supaDb(){
  const err=e=>{const x=new Error(e&&e.message||'erro');x.code=e&&/row-level security|permission/i.test(e.message||'')?'invalid_argument':'unavailable';return x};
@@ -1113,14 +1140,14 @@ function supaDb(){
 }
 function supaDownloads(){return {async save({filename,data}){const blob=data instanceof Blob?data:new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}}}
 async function supaShim(){
- const lib=await loadSupaLib();supa=lib.createClient(SUPA.url,SUPA.key,{auth:{persistSession:true}});
+ const lib=await loadSupaLib();SB_RECOVERY=/type=recovery/.test(location.hash);supa=lib.createClient(SUPA.url,SUPA.key,{auth:{persistSession:true}});
  await supaAuth();
  const adm=!!(supaPerfil&&supaPerfil.papel==='admin'),pode=!!supaPerfil;
  const user={isOwner:async()=>adm,canEdit:async()=>adm,can:async n=>n==='data.write'?pode:null,id:async()=>supaUser.id,me:async()=>({id:supaUser.id,name:(supaPerfil&&supaPerfil.nome)||supaUser.email,email:supaUser.email})};
  const caps={db:supaDb(),user,downloads:supaDownloads(),sample:null};
  window.claude={use:async n=>caps[n]??null};
  // rodapé: quem está logado + sair
- const rf=document.querySelector('.rail-foot');if(rf&&!document.getElementById('sb-out')){const d=document.createElement('div');d.className='sb-who';d.innerHTML=`<span>${esc((supaPerfil&&(supaPerfil.nome||supaPerfil.usuario))||'')} · ${pode?(adm?'admin':'operacional'):'sem perfil'}</span><button class="btn sm ghost" id="sb-out" type="button">Sair</button>`;rf.appendChild(d);d.querySelector('#sb-out').addEventListener('click',async()=>{await supa.auth.signOut();location.reload()})}
+ const rf=document.querySelector('.rail-foot');if(rf&&!document.getElementById('sb-out')){const d=document.createElement('div');d.className='sb-who';d.innerHTML=`<span>${esc((supaPerfil&&(supaPerfil.nome||supaPerfil.usuario))||'')} · ${pode?(adm?'admin':'operacional'):'sem perfil'}</span><button class="btn sm ghost" id="sb-pw" type="button">Trocar senha</button><button class="btn sm ghost" id="sb-out" type="button">Sair</button>`;rf.appendChild(d);d.querySelector('#sb-pw').addEventListener('click',()=>window.__sbTrocarSenha&&window.__sbTrocarSenha());d.querySelector('#sb-out').addEventListener('click',async()=>{await supa.auth.signOut();location.reload()})}
  if(!pode)toast('Seu usuário ainda não tem perfil. Peça ao admin para liberar o acesso.','crit');
 }
 async function boot(){
@@ -1585,7 +1612,7 @@ function vParams(loading){
  <section class="card"><div class="card-h"><div><h2>Régua pós-FER por quadrante</h2><p>Referência do guide global, usada para o prazo “iniciar plano até”.</p></div></div><div class="tw"><table class="t"><thead><tr><th>Quadrante</th><th>Classificação</th><th>O que significa</th><th>Ação recomendada</th><th class="n">Prazo</th></tr></thead><tbody>
  ${Object.entries(QUADS).map(([q,Q])=>`<tr><td>${quadPill(q)}</td><td class="strong">${Q.cls}</td><td class="sub wrap" style="color:var(--ink-2)">${Q.sig}</td><td class="sub wrap" style="color:var(--ink-2)">${Q.acao}</td><td class="n strong">${Q.prazo}</td></tr>`).join('')}</tbody></table></div></section>
  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-a="saveParams">Salvar parâmetros</button><button class="btn" data-a="export">${ICON.dl}Exportar a base em Excel</button></div>`;
- if(supa&&isAdm)h+=`<section class="card" style="margin-top:16px"><div class="card-h"><div><h2>Acessos</h2><p>Quem criou acesso no site. Libere como Operacional ou Admin; “Sem acesso” bloqueia.</p></div></div><div class="card-b" id="sb-acessos"><p class="muted">Carregando…</p></div></section>`;
+ if(supa&&isAdm)h+=`<section class="card" style="margin-top:16px"><div class="card-h"><div><h2>Acessos</h2><p>Quem criou acesso no site. Libere como Operacional ou Admin; “Sem acesso” bloqueia. Se alguém esqueceu a senha, crie uma provisória aqui.</p></div></div><div class="card-b" id="sb-acessos"><p class="muted">Carregando…</p></div></section>`;
  return h;
 }
 
