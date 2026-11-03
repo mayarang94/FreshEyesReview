@@ -787,6 +787,9 @@ body.op [data-nav="parametros"],body.op [data-a="dr-del"],body.op [data-a="delAc
 .rg-chip[draggable="true"]{cursor:grab}.rg-chip.dragging{opacity:.45}
 body.rg-dragging .rg-col{transition:background .12s}
 body.rg-dragging .rg-col.drop{background:color-mix(in srgb,var(--green) 12%,transparent);outline:2px dashed var(--green);outline-offset:-3px}
+.sum-btn{font:inherit;cursor:pointer;text-align:left;color:inherit}
+.sum-btn:hover{filter:brightness(.97)}.sum-btn.on{box-shadow:inset 0 0 0 2px var(--navy)}
+.due-f{display:flex;align-items:center;gap:10px;font-size:13px;margin:-4px 0 4px;color:var(--ink-2)}
 </style>
 
 <div class="app" id="app">
@@ -1233,24 +1236,23 @@ function vHoje(loading){
  let h=headHTML('Hoje',d.charAt(0).toUpperCase()+d.slice(1),'');
  if(loading)return h+loadingHTML();
  const T=buildTasks();LAST_T=T;T.forEach((t,i)=>{t._i=i;t.g=taskGroup(t);t.cli=taskCliente(t);const cd=taskCd(t);const k=S.clientes['cd-'+cd];t.bv=k?k.bv:((list('entrevistas').find(x=>String(x.cd)===String(cd))||{}).bv)});
- const tab=S.ui.hojeTab||'';
+ const tab=S.ui.hojeTab||'';const due=S.ui.hojeDue||'';
+ const fitDue=t=>{if(!due)return true;if(due==='sem')return !t.due;if(!t.due)return false;const n=diff(t.due);return due==='atr'?n<0:due==='hoje'?n===0:n>0&&n<=7};
  const nAtr=T.filter(t=>t.due&&diff(t.due)<0).length,nHoje=T.filter(t=>t.due&&diff(t.due)===0).length,n7=T.filter(t=>t.due&&diff(t.due)>0&&diff(t.due)<=7).length,nSem=T.filter(t=>!t.due).length;
  h+=`<div class="summary">
-  <div class="sum crit"><b class="num">${nAtr}</b><span>atrasadas</span></div>
-  <div class="sum warn"><b class="num">${nHoje}</b><span>para hoje</span></div>
-  <div class="sum"><b class="num">${n7}</b><span>nos próximos<br>7 dias</span></div>
-  <div class="sum"><b class="num">${nSem}</b><span>sem prazo<br>definido</span></div></div>`;
+  ${[['atr','crit',nAtr,'atrasadas'],['hoje','warn',nHoje,'para hoje'],['7d','',n7,'nos próximos<br>7 dias'],['sem','',nSem,'sem prazo<br>definido']].map(([k,c,n,l])=>`<button type="button" class="sum ${c} sum-btn ${due===k?'on':''}" data-a="hojeDue" data-v="${k}" aria-pressed="${due===k}" title="Ver só estas"><b class="num">${n}</b><span>${l}</span></button>`).join('')}</div>
+ ${due?`<div class="due-f">Mostrando só: <b>${{atr:'atrasadas',hoje:'para hoje','7d':'nos próximos 7 dias',sem:'sem prazo definido'}[due]}</b><button class="btn sm ghost" data-a="hojeDue" data-v="${due}">Ver tudo</button></div>`:''}`;
  const cnt=k=>{const xs=T.filter(t=>t.g===k);return {n:xs.length,atr:xs.filter(t=>t.due&&diff(t.due)<0).length}};
  h+=`<div class="tabs" role="tablist" aria-label="Tipo de atividade"><button class="tabb ${!tab?'on':''}" data-a="hojeTab" data-v="" role="tab" aria-selected="${!tab}">Tudo <span class="num">${T.length}</span></button>${HOJE_G.map(g=>{const c=cnt(g.k);return `<button class="tabb ${tab===g.k?'on':''}" data-a="hojeTab" data-v="${g.k}" role="tab" aria-selected="${tab===g.k}">${g.t} <span class="num">${c.n}</span>${c.atr?`<em>${c.atr}</em>`:''}</button>`}).join('')}</div>`;
  const row=t=>{const n=t.due?diff(t.due):null;const when=t.due?`<b class="num">${fd(t.due).slice(0,5)}</b><span class="${n<0?'crit':n<=1?'warn':''}">${n<0?`venceu há ${-n} d`:n===0?'hoje':n===1?'amanhã':`em ${n} d`}</span>`:`<b>—</b><span>sem prazo</span>`;
   return `<div class="ct ${t.sev}"><i class="sv"></i><div class="when">${when}</div><div style="min-width:0"><div class="cli">${esc(t.cli)}${t.bv?`<small>${brl(t.bv)}/mês</small>`:''}</div><div class="task-t">${t.title}</div>${t.ctx?`<div class="task-c">${t.ctx}</div>`:''}</div>
    <div class="task-a">${t.acts.map(([l,a],i)=>a==='open'?`<button class="btn sm ghost" data-a="quick" data-ti="${t._i}">Abrir</button>`:`<button class="btn sm ${i===0?'':'ghost'}" data-a="${a}" data-c="${t.ref[0]}" data-id="${esc(t.ref[1])}" ${t.aid?`data-aid="${esc(t.aid)}"`:''} ${t.ids?`data-ids="${esc(t.ids.join(','))}"`:''}>${esc(l)}</button>`).join('')}</div></div>`};
- const sec=g=>{const xs=T.filter(t=>t.g===g.k).sort((x,y)=>(x.due?0:1)-(y.due?0:1)||(x.due||'').localeCompare(y.due||'')||String(x.cli).localeCompare(String(y.cli)));
-  const near=xs.filter(t=>!t.due||diff(t.due)<=7),later=xs.filter(t=>t.due&&diff(t.due)>7);const open=S.ui.later&&S.ui.later[g.k];const atr=xs.filter(t=>t.due&&diff(t.due)<0).length;
+ const sec=g=>{const xs=T.filter(t=>t.g===g.k&&fitDue(t)).sort((x,y)=>(x.due?0:1)-(y.due?0:1)||(x.due||'').localeCompare(y.due||'')||String(x.cli).localeCompare(String(y.cli)));
+  if(due&&!xs.length)return '';const near=xs.filter(t=>!t.due||diff(t.due)<=7),later=xs.filter(t=>t.due&&diff(t.due)>7);const open=S.ui.later&&S.ui.later[g.k];const atr=xs.filter(t=>t.due&&diff(t.due)<0).length;
   return `<section class="card cl" aria-label="${g.t}"><header class="cl-h"><div style="min-width:0"><h2>${g.t}</h2><div class="sub">${g.p}</div></div><div class="cl-p">${atr?`<span class="pill p-crit">${pl(atr,'atrasada','atrasadas')}</span>`:''}<span class="pill plain">${pl(xs.length,'atividade','atividades')}</span></div></header>
    ${near.map(row).join('')||(later.length?'':`<div class="empty" style="padding:16px">Nada pendente aqui.</div>`)}
    ${later.length?(open?later.map(row).join(''):`<button class="more" data-a="laterSec" data-v="${g.k}">Ver ${pl(later.length,'atividade','atividades')} mais adiante (a partir de ${fd(later[0].due)})</button>`):''}</section>`};
- const body=HOJE_G.filter(g=>!tab||g.k===tab).map(sec).join('');
+ const body=HOJE_G.filter(g=>!tab||g.k===tab).map(sec).join('')||(due?`<section class="card"><div class="empty" style="padding:20px">Nada aqui${tab?' nesta aba':''}.</div></section>`:'');
  const fila=list('clientes').filter(k=>k.etapa==='1. A acionar KAM').sort((a,b)=>(b.bv||0)-(a.bv||0));
  const real=list('entrevistas'),fyNow=fy(TODAY_ISO),realFy=real.filter(e=>fy(e.data)===fyNow);
  const eleg=list('clientes').filter(k=>k.etapa!=='LOST / fora do escopo');
@@ -2224,6 +2226,7 @@ document.addEventListener('click',async ev=>{
   case 'qa-del':{const key=b.dataset.v;if(await remove('acoes',key))toast('Ação excluída.');DR.editAcao=null;DR.forceCards=true;refreshQuick();break}
   case 'exTema':{const v=b.dataset.v;const a=new Set(u.exT||[]);a.has(v)?a.delete(v):a.add(v);u.exT=[...a];render();break}
   case 'exTemaAll':{const all=[...document.querySelectorAll('[data-a="exTema"]')].map(x=>x.dataset.v);u.exT=(u.exT||[]).length>=all.length?[]:all;render();break}
+  case 'hojeDue':{const v=b.dataset.v;u.hojeDue=u.hojeDue===v?'':v;render();break}
   case 'histSel':u.histCd=b.dataset.v;u.histEdit=null;render();break;
   case 'hs-edit':u.histEdit=+b.dataset.i;render();setTimeout(()=>{const f=$('#he-t')||$('#he-d');f&&f.focus()},30);break;
   case 'hs-cancel':u.histEdit=null;render();break;
