@@ -2392,7 +2392,7 @@ async function saveDrawer(btn){
   const nota=(o.nota||'').trim();const mud=[];
   if(cur.etapa&&o.etapa!==cur.etapa)mud.push(`${cur.etapa} → ${o.etapa}${['Stand by','Adiou'].includes(o.etapa)&&o.retomarEm?` (retomar em ${fd(o.retomarEm)})`:''}`);
   if(cur.kam&&o.kam&&o.kam.trim()!==String(cur.kam).trim())mud.push(`KAM: ${cur.kam} → ${o.kam.trim()}`);
-  const linha=[nota,mud.join(' · ')].filter(Boolean).join(' — ');if(linha)hist.push({data:TODAY_ISO,texto:linha});
+  const linha=[mud.join(' · '),nota].filter(Boolean).join(' — ');if(linha)hist.push({data:TODAY_ISO,texto:linha});
   const body={...mergeForm(cur,collect(form)),followups:DR.draft.followups,historico:hist};delete body.nota;if(linha)body.obs=stampTxt(linha);
   if(o.etapa==='2. Aguardando KAM'&&!o.acionadoKam)body.acionadoKam=TODAY_ISO;
   if(!['Stand by','Adiou'].includes(o.etapa))delete body.retomarEm;
