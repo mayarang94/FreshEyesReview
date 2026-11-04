@@ -951,7 +951,7 @@ function clienteCom(k){return (ETAPA_INFO[k.etapa]||{}).com||'—'}
 function regua(k){
  const et=k.etapa||'';if(!(et.startsWith('2.')||et.startsWith('3.')))return null;
  const base=et.startsWith('2.')?k.acionadoKam:k.convite;
- const fu=(k.followups||[]).filter(f=>f.etapa===et);
+ const fu=(k.followups||[]).filter(f=>f.etapa===et&&(!base||String(f.data)>=String(base)));
  if(!base)return {semBase:true,n:fu.length};
  const last=fu.length?fu[fu.length-1].data:base;
  const calc=iso(addD(last,+cfg().fuDias));const next=k.proximoFollowup&&String(k.proximoFollowup)>=String(last)?k.proximoFollowup:calc;
@@ -984,7 +984,7 @@ function buildTasks(){
    else if(diff(k.dataAgendada)<=0)T.push({cat:'Entrevista',sev:'warn',due:k.dataAgendada,title:'Registrar a entrevista que aconteceu',ctx:'Cole a transcrição para o Claude pré-preencher o cadastro.',ref,acts:[['Ir para Entrevistas','novaEnt'],['Abrir ficha','open']]});
    else T.push({cat:'Entrevista',sev:'info',due:k.dataAgendada,title:'Fazer a entrevista FER',ctx:`Agendada para ${fd(k.dataAgendada)}.`,ref,acts:[['Abrir ficha','open']]});
   }
-  if((et==='Stand by'||et==='Adiou')&&k.retomarEm)T.push({cat:'Cronograma',sev:'',due:k.retomarEm,title:'Retomar o contato sobre o FER',ctx:`Conta em ${et.toLowerCase()}.${k.obs?' '+E(k.obs):''}`,ref,acts:[['Abrir ficha','open']]});
+  if((et==='Stand by'||et==='Adiou')&&k.retomarEm)T.push({cat:'Cronograma',sev:'',due:k.retomarEm,title:'Retomar o contato sobre o FER',ctx:`Conta em ${et.toLowerCase()}${k.kam?' · KAM '+E(k.kam):''}.${k.obs?' '+E(k.obs):''}`,ref,acts:[['Retomar agora','retomar'],['Adiar','adiar'],['Abrir ficha','open']]});
   if(et.startsWith('5.')&&!entDoCliente(k))T.push({cat:'Entrevista',sev:'warn',due:null,title:'Cadastrar a entrevista que já foi feita',ctx:'',ref,acts:[['Ir para Entrevistas','novaEnt']]});
  }
  for(const e of list('entrevistas')){
@@ -1645,7 +1645,7 @@ function drCliente(id){
  openDrawer(drHead(id?`Cronograma · CD ${esc(k.cd)}`:'Cronograma',id?esc(k.nome):'Incluir cliente elegível',id?`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${etapaPill(k.etapa)}<span class="pill plain">Pendência com ${esc(clienteCom(k))}</span>${r.next?`<span class="pill ${diff(r.next)<0?'p-crit':'p-info'}">Próximo follow-up ${fd(r.next)} · ${r.n} de ${cfg().fuMax}</span>`:''}</div>`:'')+
  `<div class="dr-b" id="dr-form">
   <fieldset class="fs" data-c="navy"><legend>① Cliente</legend><div class="fg">${F.text('nome','Cliente',k.nome,{full:true})}${F.num('cd','CD',k.cd)}${F.num('posicao','Posição no ranking',k.posicao)}${F.num('bv','BV médio mês (R$)',k.bv,{hint:k.bv?brl(k.bv):''})}${F.text('kam','KAM / Consultor',k.kam,{list:nomes('kam'),hint:'Escolha da lista ou escreva um nome novo.'})}${F.text('gestor','Gestor',k.gestor,{list:nomes('gestor')})}</div></fieldset>
-  <fieldset class="fs" data-c="blue"><legend>② Funil</legend><div class="fg">${F.sel('etapa','Etapa',ETAPAS,k.etapa,{blank:false})}${F.date('acionadoKam','Acionado o KAM em',k.acionadoKam,{hint:'Início da régua na etapa 2.'})}${F.date('convite','Convite ao cliente em',k.convite,{hint:'Início da régua na etapa 3.'})}${F.date('dataAgendada','Entrevista agendada para',k.dataAgendada)}${F.date('retomarEm','Retomar em',k.retomarEm,{hint:'Para Stand by ou Adiou: vira lembrete no Hoje.'})}
+  <fieldset class="fs" data-c="blue"><legend>② Funil</legend><div class="fg">${F.sel('etapa','Etapa',ETAPAS,k.etapa,{blank:false})}<div id="wrap-retomar" style="display:contents" ${['Stand by','Adiou'].includes(k.etapa)?'':'hidden'}>${F.date('retomarEm','Retomar em (obrigatório)',k.retomarEm,{hint:'Nesse dia aparece no Hoje para retomar o contato.'})}</div>${F.date('acionadoKam','Acionado o KAM em',k.acionadoKam,{hint:'Início da régua na etapa 2.'})}${F.date('convite','Convite ao cliente em',k.convite,{hint:'Início da régua na etapa 3.'})}${F.date('dataAgendada','Entrevista agendada para',k.dataAgendada)}
    ${F.sel('entrevistaId','Entrevista vinculada',list('entrevistas').map(x=>[x._id,`${x._id} · ${short(x.cliente)}`]),k.entrevistaId||(e&&e._id))}</div></fieldset>
   <fieldset class="fs" data-c="yellow"><legend>Follow-ups</legend><div class="list-mini" id="fu-list">${fuList()}</div><div><button class="btn sm" data-a="dr-fu">${ICON.plus}Registrar follow-up hoje</button></div></fieldset>
   <fieldset class="fs" data-c="lilac"><legend>Histórico e status</legend>${F.area('nota','Nova atualização','',{rows:2,hint:'Escreva o que aconteceu. Ao salvar, vira o último status e entra no histórico abaixo.'})}<div class="list-mini">${histList()}</div></fieldset>
@@ -1950,16 +1950,16 @@ async function logTo(c,id,texto,extra={},dt){const cur=S[c][id]||{};const D=dt||
 
 
 /* ── data de quando foi feito ── */
-const DATE_ACTS={fu:'Quando você fez o follow-up?',advance:'Quando o KAM enviou o convite?',acionei:'Quando você acionou o KAM?',retEnviado:'Quando você falou com o cliente?',cobrei:'Quando você cobrou a área?',compartilhei:'Quando você compartilhou com a área?',acaoFeita:'Quando a ação foi concluída?',posFeito:'Quando foi feito?'};
+const DATE_ACTS={adiar:'Retomar em qual data?',fu:'Quando você fez o follow-up?',advance:'Quando o KAM enviou o convite?',acionei:'Quando você acionou o KAM?',retEnviado:'Quando você falou com o cliente?',cobrei:'Quando você cobrou a área?',compartilhei:'Quando você compartilhou com a área?',acaoFeita:'Quando a ação foi concluída?',posFeito:'Quando foi feito?'};
 function askDate(b){
  if(b.dataset.a==='advance'&&!(S.clientes[b.dataset.id]||{}).etapa?.startsWith('2.')){b.dataset.ok='1';b.click();return}
  closePop();const r=b.getBoundingClientRect();const p=document.createElement('div');p.className='pop';p.id='pop';p.setAttribute('role','dialog');
- p.innerHTML=`<label for="pop-d">${DATE_ACTS[b.dataset.a]}</label><input class="inp" type="date" id="pop-d" value="${TODAY_ISO}" max="${TODAY_ISO}"><div class="pop-a"><button class="btn sm ghost" data-pop="no">Cancelar</button><button class="btn sm pri" data-pop="ok">Confirmar</button></div>`;
+ p.innerHTML=`<label for="pop-d">${DATE_ACTS[b.dataset.a]}</label><input class="inp" type="date" id="pop-d" ${b.dataset.a==='adiar'?`value="${iso(addD(TODAY_ISO,14))}" min="${iso(addD(TODAY_ISO,1))}"`:`value="${TODAY_ISO}" max="${TODAY_ISO}"`}><div class="pop-a"><button class="btn sm ghost" data-pop="no">Cancelar</button><button class="btn sm pri" data-pop="ok">Confirmar</button></div>`;
  document.body.appendChild(p);
  const w=p.offsetWidth,hh=p.offsetHeight;let left=Math.min(Math.max(12,r.right-w),innerWidth-w-12);let top=r.bottom+6;if(top+hh>innerHeight-12)top=Math.max(12,r.top-hh-6);
  p.style.left=left+'px';p.style.top=top+'px';$('#pop-d').focus();
  p.addEventListener('click',e=>{const x=e.target.closest('[data-pop]');if(!x)return;e.stopPropagation();
-  if(x.dataset.pop==='ok'){const v=$('#pop-d').value;if(!v||diff(v)>0){toast('Escolha uma data até hoje.','crit');return}b.dataset.ok='1';b.dataset.dt=v;closePop();b.click()}else closePop()});
+  if(x.dataset.pop==='ok'){const v=$('#pop-d').value;const fut=b.dataset.a==='adiar';if(!v||(fut?diff(v)<=0:diff(v)>0)){toast(fut?'Escolha uma data a partir de amanhã.':'Escolha uma data até hoje.','crit');return}b.dataset.ok='1';b.dataset.dt=v;closePop();b.click()}else closePop()});
  p.addEventListener('keydown',e=>{if(e.key==='Enter')p.querySelector('[data-pop="ok"]').click();if(e.key==='Escape'){e.stopPropagation();closePop()}});
 }
 function closePop(){const p=$('#pop');p&&p.remove()}
@@ -1970,7 +1970,7 @@ document.addEventListener('mousedown',e=>{const p=$('#pop');if(p&&!p.contains(e.
 let TX=null;const UNDO=(()=>{try{const x=JSON.parse(localStorage.getItem('fer-undo')||'[]');return Array.isArray(x)?x.filter(u=>Date.now()-(u.at||0)<864e5):[]}catch{return []}})();
 function saveUndo(){try{localStorage.setItem('fer-undo',JSON.stringify(UNDO))}catch{}}
 function track(c,id){if(!TX||TX.some(x=>x.c===c&&x.id===id))return;const cur=S[c][id];TX.push({c,id,prev:cur?JSON.parse(JSON.stringify(cur)):null})}
-const UNDOABLE=new Set(['dispKam','qa-save','qa-del','fu','advance','standby','acionei','revisado','retEnviado','cobrei','compartilhei','acaoFeita','posFeito','qk-save','qk-upd','qk-del']);
+const UNDOABLE=new Set(['retomar','adiar','dispKam','qa-save','qa-del','fu','advance','standby','acionei','revisado','retEnviado','cobrei','compartilhei','acaoFeita','posFeito','qk-save','qk-upd','qk-del']);
 async function undoLast(){const u=UNDO.pop();saveUndo();renderUndo();if(!u)return;
  for(const x of [...u.items].reverse()){if(x.prev){const b={...x.prev};delete b._id;await db.collection(x.c).doc(x.id).set(b).then(()=>{S[x.c][x.id]={...b,_id:x.id}}).catch(()=>{})}else await db.collection(x.c).doc(x.id).delete().then(()=>{delete S[x.c][x.id]}).catch(()=>{})}
  render();
@@ -2278,6 +2278,8 @@ document.addEventListener('click',async ev=>{
    if(await patch('clientes',id,{proximoFollowup:null,followups:fu,historico:[...(k.historico||[]),{data:D,texto:`Follow-up ${n} com o ${k.etapa.startsWith('2.')?'KAM':'cliente'}`}]}))toast(`Follow-up de ${fd(D)} registrado. Próximo em ${fd(addD(D,+cfg().fuDias))}.`);break}
   case 'advance':{const k=S.clientes[id];if((k.etapa||'').startsWith('2.')){if(await patch('clientes',id,{proximoFollowup:null,etapa:'3. Aguardando cliente',convite:D,historico:[...(k.historico||[]),{data:D,texto:'KAM enviou o convite ao cliente'}],obs:stampTxt('Convite enviado ao cliente',D)}))toast('Movido para “Aguardando cliente”.')}
    else{drCliente(id);setTimeout(()=>{const s=$('#d-etapa');if(s){s.value='4. Agendada';$('#d-dataAgendada').focus()}},260)}break}
+  case 'retomar':{const k=S.clientes[id];const tx=`Retomado: ${k.etapa} → 2. Aguardando KAM`;if(await patch('clientes',id,{etapa:'2. Aguardando KAM',acionadoKam:TODAY_ISO,retomarEm:null,proximoFollowup:null,historico:[...(k.historico||[]),{data:TODAY_ISO,texto:tx}],obs:stampTxt(tx)}))toast(`${short(k.nome)} voltou para Aguardando KAM. Os follow-ups começam do zero.`);break}
+  case 'adiar':{const k=S.clientes[id];const tx=`${k.etapa} adiado: retomar em ${fd(D)}`;if(await patch('clientes',id,{retomarEm:D,historico:[...(k.historico||[]),{data:TODAY_ISO,texto:tx}],obs:stampTxt(tx)}))toast(`Retomar em ${fd(D)}.`);break}
   case 'standby':{const k=S.clientes[id];if(await patch('clientes',id,{etapa:'Stand by',historico:[...(k.historico||[]),{data:TODAY_ISO,texto:'Régua esgotada: movido para Stand by'}],obs:stampTxt('Régua esgotada, em Stand by')}))toast('Movido para Stand by.');break}
   case 'acionei':{const k=S.clientes[id];if(await patch('clientes',id,{etapa:'2. Aguardando KAM',acionadoKam:D,historico:[...(k.historico||[]),{data:D,texto:`KAM ${k.kam||''} acionado sobre o FER`}],obs:stampTxt(`KAM ${k.kam||''} acionado`,D)}))toast(`KAM acionado em ${fd(D)}. Follow-up em ${fd(addD(D,+cfg().fuDias))}.`);break}
   case 'revisado':if(await logTo('entrevistas',id,'Cadastro revisado',{cadastro:'Revisado'}))toast('Cadastro revisado.');break;
@@ -2339,6 +2341,7 @@ let dkT=0;document.addEventListener('input',ev=>{const t=ev.target;
  if(DR&&(DR.kind==='entrevista'||(DR.kind==='novaEnt'&&DR.step===2))&&t.closest('#dr-form')&&['tecnico','relacionamento','fimContrato','data','prazoRetornoMeses','retornoEnviadoEm'].includes(t.dataset.f)){const o={...(DR.kind==='entrevista'?S.entrevistas[DR.id]:DR.e),...clean(readEnt($('#dr-form')))};if($('#ent-calc'))$('#ent-calc').innerHTML=entCalc(o);if($('#qmini'))$('#qmini').innerHTML=quadMini(o);
   if(t.dataset.f==='tecnico'||t.dataset.f==='relacionamento'){const s=quadSug(o.tecnico,o.relacionamento);const h=$('#d-quadrante').parentElement.querySelector('.hint');if(h&&s)h.innerHTML=`Pelas notas: <b>${s}</b>. Use “Zona” quando houver fatores externos.`}}});
 document.addEventListener('change',async ev=>{const t=ev.target,u=S.ui;
+ if(t.id==='d-etapa'&&$('#wrap-retomar')){const pa=['Stand by','Adiou'].includes(t.value);$('#wrap-retomar').hidden=!pa;if(pa)setTimeout(()=>{const f=$('#d-retomarEm');f&&!f.value&&f.focus()},20);return}
  if(t.id==='opt-comite'){$('#fs-comite').hidden=!t.checked;if(t.checked)setTimeout(()=>{const f=$('#d-pedidoComite');f&&f.focus()},20);return}
  if(t.dataset&&t.dataset.chk){t.closest('.td-i').classList.toggle('on',t.checked);return}
  if(t.name==='tplano'&&DR&&DR.kind==='entrevista'){const e={...S.entrevistas[DR.id],temPlano:t.value==='sim'};const box=t.closest('.td-pl');const tmp=document.createElement('div');tmp.innerHTML=todoHTML(e);const nb=tmp.querySelector('.td-pl');if(box&&nb)box.innerHTML=nb.innerHTML;return}
@@ -2364,11 +2367,14 @@ async function saveDrawer(btn){
   const o=clean(collect(form));if(!o.nome||!o.cd){toast('Informe o nome e o CD do cliente.','crit');return}
   const id=DR.id||`cd-${o.cd}`;const cur=DR.id?S.clientes[DR.id]:{};
   if(!DR.id&&S.clientes[id]){toast('Já existe um cliente com esse CD.','crit');return}
+  if(['Stand by','Adiou'].includes(o.etapa)&&!o.retomarEm){toast('Informe em “Retomar em” quando voltar a falar dessa conta.','crit');const f=$('#d-retomarEm');f&&f.focus();return}
   const hist=[...DR.draft.historico];
+  if(cur.kam&&o.kam&&o.kam.trim()!==String(cur.kam).trim())hist.push({data:TODAY_ISO,texto:`KAM: ${cur.kam} → ${o.kam.trim()}`});
   const nota=(o.nota||'').trim();if(nota)hist.push({data:TODAY_ISO,texto:nota});
   if(cur.etapa&&o.etapa!==cur.etapa)hist.push({data:TODAY_ISO,texto:`Etapa: ${cur.etapa} → ${o.etapa}`});
   const body={...mergeForm(cur,collect(form)),followups:DR.draft.followups,historico:hist};delete body.nota;if(nota)body.obs=nota;
   if(o.etapa==='2. Aguardando KAM'&&!o.acionadoKam)body.acionadoKam=TODAY_ISO;
+  if(!['Stand by','Adiou'].includes(o.etapa))delete body.retomarEm;
   if(await put('clientes',id,body)){toast('Cliente salvo.');closeDrawer()}
  }else if(DR.kind==='entrevista'){
   const raw=readEnt(form);const cur=S.entrevistas[DR.id];const body=mergeForm(cur,raw);body.temas=raw.temas;body.id=DR.id;
