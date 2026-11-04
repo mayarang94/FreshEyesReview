@@ -1668,7 +1668,8 @@ function drCliente(id){
  </div><div class="dr-f">${id?`<button class="btn ghost danger" data-a="dr-del">Excluir</button>`:''}<span class="sp"></span><button class="btn" data-a="close">Cancelar</button><button class="btn pri" data-a="dr-save">Salvar</button></div>`);
 }
 function fuList(){const f=DR.draft.followups;return f.length?f.map((x,i)=>`<div class="row"><span class="d">${fd(x.data)}</span><span style="flex:1">${esc(x.etapa||'')}${x.nota?` · <span class="muted">${esc(x.nota)}</span>`:''}</span><button class="btn ghost sm" data-a="dr-fu-del" data-i="${i}" aria-label="Remover">${ICON.x}</button></div>`).join(''):'<div class="row muted">Nenhum follow-up registrado.</div>'}
-function histList(){const h=DR.draft.historico;return h.length?[...h].reverse().map(x=>`<div class="row"><span class="d">${fd(x.data)}</span><span style="flex:1">${esc(x.texto)}</span></div>`).join(''):'<div class="row muted">Sem histórico.</div>'}
+function histList(){const h=DR.draft.historico;if(!h.length)return '<div class="row muted">Sem histórico.</div>';const g=[];[...h].reverse().forEach(x=>{const l=g[g.length-1];if(l&&l.data===x.data)l.t.push(x.texto);else g.push({data:x.data,t:[x.texto]})});
+ return g.map(x=>`<div class="row"><span class="d">${fd(x.data)}</span><span style="flex:1">${x.t.map(esc).join('<br>')}</span></div>`).join('')}
 
 /* entrevista */
 function entFormHTML(e,isNew){
@@ -2388,10 +2389,11 @@ async function saveDrawer(btn){
   if(!DR.id&&S.clientes[id]){toast('Já existe um cliente com esse CD.','crit');return}
   if(['Stand by','Adiou'].includes(o.etapa)&&!o.retomarEm){toast('Informe em “Retomar em” quando voltar a falar dessa conta.','crit');const f=$('#d-retomarEm');f&&f.focus();return}
   const hist=[...DR.draft.historico];
-  if(cur.kam&&o.kam&&o.kam.trim()!==String(cur.kam).trim())hist.push({data:TODAY_ISO,texto:`KAM: ${cur.kam} → ${o.kam.trim()}`});
-  const nota=(o.nota||'').trim();if(nota)hist.push({data:TODAY_ISO,texto:nota});
-  if(cur.etapa&&o.etapa!==cur.etapa)hist.push({data:TODAY_ISO,texto:`Etapa: ${cur.etapa} → ${o.etapa}`});
-  const body={...mergeForm(cur,collect(form)),followups:DR.draft.followups,historico:hist};delete body.nota;if(nota)body.obs=nota;
+  const nota=(o.nota||'').trim();const mud=[];
+  if(cur.etapa&&o.etapa!==cur.etapa)mud.push(`${cur.etapa} → ${o.etapa}${['Stand by','Adiou'].includes(o.etapa)&&o.retomarEm?` (retomar em ${fd(o.retomarEm)})`:''}`);
+  if(cur.kam&&o.kam&&o.kam.trim()!==String(cur.kam).trim())mud.push(`KAM: ${cur.kam} → ${o.kam.trim()}`);
+  const linha=[nota,mud.join(' · ')].filter(Boolean).join(' — ');if(linha)hist.push({data:TODAY_ISO,texto:linha});
+  const body={...mergeForm(cur,collect(form)),followups:DR.draft.followups,historico:hist};delete body.nota;if(linha)body.obs=stampTxt(linha);
   if(o.etapa==='2. Aguardando KAM'&&!o.acionadoKam)body.acionadoKam=TODAY_ISO;
   if(!['Stand by','Adiou'].includes(o.etapa))delete body.retomarEm;
   if(await put('clientes',id,body)){toast('Cliente salvo.');closeDrawer()}
