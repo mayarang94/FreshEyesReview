@@ -1663,7 +1663,7 @@ function drCliente(id){
    <div class="sub-h">Histórico</div><div class="list-mini">${histList()}</div></fieldset>
   <details class="fs-more" ${id?'':'open'}><summary>Mais detalhes <span class="muted">· nome, CD, BV, ranking, gestor, datas</span></summary>
    <div class="fg" style="margin-top:10px">${F.text('nome','Cliente',k.nome,{full:true})}${F.num('cd','CD',k.cd)}${F.num('posicao','Posição no ranking',k.posicao)}${F.num('bv','BV médio mês (R$)',k.bv,{hint:k.bv?brl(k.bv):''})}${F.text('gestor','Gestor',k.gestor,{list:nomes('gestor')})}
-   <div class="f full muted" style="font-size:12px">Datas registradas: acionado o KAM ${k.acionadoKam?fd(k.acionadoKam):'–'} · convite ${k.convite?fd(k.convite):'–'} · entrevista ${k.dataAgendada?fd(k.dataAgendada):'–'}</div>
+   <div class="f full muted" style="font-size:12px">Datas registradas: acionado o KAM ${k.acionadoKam?fd(k.acionadoKam):'–'} · convite ${k.convite?fd(k.convite):'–'} · entrevista ${k.dataAgendada?fd(k.dataAgendada):'–'} <button class="btn sm ghost" type="button" data-a="showDates">Editar datas</button></div>
    ${(k.etapa||'').startsWith('5.')||k.entrevistaId||e?F.sel('entrevistaId','Entrevista vinculada',list('entrevistas').map(x=>[x._id,`${x._id} · ${short(x.cliente)}`]),k.entrevistaId||(e&&e._id)):''}</div></details>
  </div><div class="dr-f">${id?`<button class="btn ghost danger" data-a="dr-del">Excluir</button>`:''}<span class="sp"></span><button class="btn" data-a="close">Cancelar</button><button class="btn pri" data-a="dr-save">Salvar</button></div>`);
 }
@@ -2315,6 +2315,7 @@ document.addEventListener('click',async ev=>{
   case 'leitura':gerarLeitura(b);break;
   case 'copyReading':try{await navigator.clipboard.writeText(S.ui.reading);toast('Copiado.')}catch{const r=document.createRange();r.selectNodeContents($('#reading-out'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Texto selecionado: use Ctrl+C.')}break;
   // drawer actions
+  case 'showDates':$$('#dr-form [data-et]').forEach(w=>w.hidden=false);{const f=$('#d-acionadoKam');f&&f.scrollIntoView({block:'center'});f&&f.focus()}break;
   case 'dr-fu':DR.draft.followups.push({data:TODAY_ISO,etapa:$('#d-etapa').value});$('#fu-list').innerHTML=fuList();break;
   case 'dr-fu-del':DR.draft.followups.splice(+b.dataset.i,1);$('#fu-list').innerHTML=fuList();break;
   case 'addAcao':DR.acoes=readActs();DR.acoes.push({status:'Em andamento'});$('#acts').innerHTML=DR.acoes.map(actHTML).join('');break;
